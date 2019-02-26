@@ -74,18 +74,14 @@ Ouputs:
     the non-constant emissivity case as well and avoids having to recalculate
     it.
 '''
-def ce_temperature(data_spl,cmb_pix,wl_vec):
+def ce_temperature(data_spl,wl_v0,wl_v1):
     Tout = []
     logR_array = []
     
     ### Standard computation
-    # For each pair of pixels (p0,p1), calculate the gray body temperature 
-    for p0,p1 in cmb_pix:        
-        
-        # Pixel to wavelength
-        wl0 = wl_vec[p0]
-        wl1 = wl_vec[p1]
-        
+    # For each pair of wavelengths (wl0,wl1), calculate constant emissivity
+    # temperature 
+    for wl0,wl1 in zip(wl_v0,wl_v1):                
         # Corresponding data from the filtered data
         res0 = 10**splev(wl0,data_spl)
         res1 = 10**splev(wl1,data_spl)
@@ -125,7 +121,7 @@ Function: compute_temperature
 Calculates the temperature
 Inputs:
     - data_spl Spline representation of the filtered intensity data
-    - pix_binned Pixels chosen for each pixel bin
+    - cmb_pix Pixels chosen for each pixel bin
     - pix_vec Overall pixel vector
     - wl_vec Vector of wavelengths (nm)
 Ouputs:
@@ -134,11 +130,22 @@ Ouputs:
     - Standard deviation (%)
     - Flag indicating if advanced method was used
 '''
-def compute_temperature(data_spl,pix_binned,pix_vec,wl_vec):
+def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     refined_fit = False
+    
+    # Minimum and maximum wavelengths
+    wl_min = np.min(wl_vec)
+    wl_max = np.max(wl_vec)
 
+    # Which wavelengths are associated with the pixel combinations?
+    wl_v0 = wl_vec[cmb_pix[:,0]]
+    wl_v1 = wl_vec[cmb_pix[:,1]] 
+    
     ### Calculate the temperature with the simple model
-    Tave,std,rse = ce_temperature(data_spl,pix_binned,pix_vec,wl_vec)
+    Tave,std,rse,logR = ce_temperature(data_spl,cmb_pix,pix_vec,wl_vec)
+    
+    
+
     
     ### Do we have a "good enough" fit?   
     # If not, we assume first a linear function of emissivity and iterate
@@ -147,12 +154,10 @@ def compute_temperature(data_spl,pix_binned,pix_vec,wl_vec):
     while rse > rse_threshold and nunk < max_poly_order:
         refined_fit = True
         
-        wl_min = np.min(wl_vec)
-        wl_max = np.max(wl_vec)
         
-        # Which wavelengths are associated with the pixel combinations?
-        wl_v0 = wl_vec[c_pix_array[:,0]]
-        wl_v1 = wl_vec[c_pix_array[:,1]]    
+        
+        
+   
     
         # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
         lnm_binm = wl_vec[bins]

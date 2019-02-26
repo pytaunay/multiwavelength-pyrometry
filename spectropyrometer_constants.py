@@ -18,5 +18,9 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 ### Define some constants
+# Blackbody curve
 C1 = 1.191e16 # W/nm4/cm2 Sr
 C2 = 1.4384e7 # nm K
+
+# Total number of pixels to take into a slice
+pix_slice = 300

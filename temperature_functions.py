@@ -54,7 +54,7 @@ def tukey_fence(Tvec):
     ### Calculate standard deviation, average, standard error
     std = np.std(T_left)
     Tave = np.mean(T_left)
-    rse = std/Tave
+    rse = std/Tave*100
 
     return Tave,std,rse,T_left
 
@@ -64,8 +64,7 @@ Calculates the temperature based on the averaging of multiple two-temperature
 predictions and Constant Emissivity (CE)
 Inputs:
     - data_spl Spline representation of the filtered intensity data
-    - cmb_pix Vector of pixel combinations
-    - wl_vec Vector of wavelengths (nm)
+    - wl_v0, wl_v1 Vector of wavelengths chosen
 Ouputs:
     - Predicted temperature from averaging (K)
     - Standard deviation (K)
@@ -109,9 +108,7 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
     logR_array = np.array(logR_array)    
 
     ### Returns
-    Tave,std,rse,_ = tukey_fence(Tout)
-    
-    print("Simple temperature model:",Tave,std,rse*100)  
+    Tave,std,rse,_ = tukey_fence(Tout) 
     
     return Tave,std,rse,logR_array
 
@@ -130,7 +127,7 @@ Ouputs:
     - Standard deviation (%)
     - Flag indicating if advanced method was used
 '''
-def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
+def compute_temperature(data_spl,cmb_pix,bins,wl_vec):
     refined_fit = False
     
     # Minimum and maximum wavelengths
@@ -140,12 +137,16 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     # Which wavelengths are associated with the pixel combinations?
     wl_v0 = wl_vec[cmb_pix[:,0]]
     wl_v1 = wl_vec[cmb_pix[:,1]] 
+
+
+    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
+    wl_binm = wl_vec[bins]
+    wl_binM = wl_vec[bins[1::]]
+    wl_binM = np.append(wl_binM,wl_vec[-1])
     
     ### Calculate the temperature with the simple model
-    Tave,std,rse,logR = ce_temperature(data_spl,cmb_pix,pix_vec,wl_vec)
-    
-    
-
+    Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
+    print("Simple temperature model:",Tave,std,rse) 
     
     ### Do we have a "good enough" fit?   
     # If not, we assume first a linear function of emissivity and iterate
@@ -153,19 +154,9 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     nunk = 2
     while rse > rse_threshold and nunk < max_poly_order:
         refined_fit = True
-        
-        
-        
-        
-   
-    
-        # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
-        lnm_binm = wl_vec[bins]
-        lnm_binM = wl_vec[bins[1::]]
-        lnm_binM = np.append(lnm_binM,wl_vec[-1])
-        
+       
         # Define the goal function
-        f = lambda pc: goal_function(pc,logR_array,wl_v1,wl_v0,wl_min,wl_max)
+        f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
         
         # Initial values of coefficients
         pc0 = np.zeros(nunk)
@@ -176,12 +167,17 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
         sol = minimize(f,pc0,method='Nelder-Mead',options = min_options)
     
         # Calculate temperature from solution
-        Tave,std = T_multivariate(sol.x,logR_array,lnm_vec1,lnm_vec0,lnm_binm,lnm_binM)
-        print(Tave,std,std/Tave*100,sol.x)
+        Tave,std,rse = nce_temperature(sol.x,logR,
+                    wl_v0,wl_v1,
+                    wl_binm,wl_binM,
+                    wl_min,
+                    wl_max)
         
-        rse = std/Tave
+        print("Advanced temperature model:",Tave,std,rse,sol.x)
+        
         nunk = nunk + 1
     
+    return Tave,std,rse,refined_fit
     
 '''
 Function: nce_temperature
@@ -196,7 +192,7 @@ Outputs:
     - Standard deviation (%)
  '''
 def nce_temperature(poly_coeff,logR,
-                    wl1,wl0,
+                    wl_v0,wl_v1,
                     wl_binm,wl_binM,
                     wl_min,
                     wl_max):  
@@ -205,19 +201,19 @@ def nce_temperature(poly_coeff,logR,
     poly_eps = Chebyshev(poly_coeff,[wl_min,wl_max])
     
     ### Emissivities at the wavelengths of interest
-    eps1 = chebyshev.chebval(wl1,poly_eps.coef)
-    eps0 = chebyshev.chebval(wl0,poly_eps.coef)
+    eps1 = chebyshev.chebval(wl_v1,poly_eps.coef)
+    eps0 = chebyshev.chebval(wl_v0,poly_eps.coef)
     
     ### Inverse temperature
-    invT = logR - 5 *np.log(wl1/wl0) - np.log(eps0/eps1)
+    invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
     
     ### Temperature
     Tout = 1/invT
-    Tout *= C2 * ( 1/wl1 - 1/wl0)
+    Tout *= C2 * ( 1/wl_v1 - 1/wl_v0)
 
     ### Returns
     Tave,std,rse,_ = tukey_fence(Tout)
     
-    print("Simple temperature model:",Tave,std,rse*100)  
+    print("Simple temperature model:",Tave,std,rse)  
     
     return Tave,std,rse    

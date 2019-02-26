@@ -149,6 +149,7 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     ### Calculate the temperature with the simple model
     Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
     print("Simple temperature model:",Tave,std,rse) 
+    sol = None
     
     ### Do we have a "good enough" fit?   
     # If not, we assume first a linear function of emissivity and iterate
@@ -179,7 +180,7 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
         
         nunk = nunk + 1
     
-    return Tave,std,rse,refined_fit
+    return Tave,std,rse,refined_fit,sol
     
 '''
 Function: nce_temperature

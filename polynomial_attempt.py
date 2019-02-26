@@ -29,7 +29,7 @@ from scipy.optimize import curve_fit,minimize
 C1 = 1.191e16 # W/nm4/cm2 Sr
 C2 = 1.4384e7 # nm K
 
-pix_slice = 400
+pix_slice = 300
 
 '''
 Function: wien_approx
@@ -263,7 +263,8 @@ refined_fit = False
 
 ### Do we have a "good enough" fit?   
 # If not, a few more operations are required
-if rse*100 > 0.5:
+nunk = 2
+while rse*100 > 0.5:
     refined_fit = True
     
     # Which wavelengths are associated with the pixel combinations?
@@ -279,7 +280,8 @@ if rse*100 > 0.5:
     
     # Chebyshev polynomial coefficients
 #    X0 = np.zeros(len(lnm_binm))
-    X0 = np.zeros(3)
+#    X0 = np.zeros(3)
+    X0 = np.zeros(nunk)
     X0[0] = 0.1
 
     min_options = {'xatol':1e-10,'fatol':1e-10,'maxfev':5000}
@@ -287,6 +289,9 @@ if rse*100 > 0.5:
 
     Tave,std = T_multivariate(sol.x,logR_array,lnm_vec1,lnm_vec0,lnm_binm,lnm_binM)
     print(Tave,std,std/Tave*100,sol.x)
+    
+    rse = std/Tave
+    nunk = nunk + 1
 
 ### Plots            
 bb_reconstructed = wien_approx(lnm_vec_sub,Tave,bb_eps)

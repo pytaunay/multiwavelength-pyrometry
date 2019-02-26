@@ -21,7 +21,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from generate_spectrum import generate_data
+from generate_spectrum import generate_data,wien_approximation
 from pixel_operations import choose_pixels, generate_combinations
 from temperature_functions import compute_temperature
 
@@ -65,30 +65,50 @@ it = 0
 for f_eps in model_list:
     print("Model: ",it)
     
-    # Generate some data
+    ### Generate some data
     I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = generate_data(
             wl_vec,T,pix_vec,f_eps)
     wl_sub_vec = wl_vec[pix_sub_vec]
     
-    # Pixel operations
+    ### Pixel operations
     chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
     cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
     
-    # Compute the temperature
-    compute_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec)
+    ### Compute the temperature
+    Tave,std,rse,refined_fit,sol = compute_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec)
+ 
+    ### Reconstruct data
+    bb_reconstructed = wien_approximation(wl_sub_vec,Tave,bb_eps)
+    eps_vec = 10**filtered_data/bb_reconstructed
+    # Since we get epsilon from the filtered data, "reconstructed_data" will be
+    # exactly like "filtered_data"
+    reconstructed_data = bb_reconstructed * eps_vec # exactly filtered   
+    
+    
+    ### Plots
+    # Intensity
+    ax[it][0].semilogy(wl_vec,noisy_data)
+    ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
+    
+    # Emissivity
+    ax[it][1].plot(wl_sub_vec,eps_vec)
+    ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
+    
+    if not refined_fit:
+        # Calculate the average emissivity
+        eps_ave = np.average(eps_vec)
+        eps_std = np.std(eps_vec)
+        print(eps_ave,eps_std)
+
     
     it += 1
 
-    ### Plots
 
 #    
 #    
 #    ### Plots            
-#    bb_reconstructed = wien_approx(lnm_vec_sub,Tave,bb_eps)
-#    eps_vec = 10**filtered_data/bb_reconstructed
-#    # Since we get epsilon from the filtered data, "reconstructed_data" will be
-#    # exactly like "filtered_data"
-#    reconstructed_data = bb_reconstructed * eps_vec # exactly filtered
+
+
 #        
 #    ## Subplots
 #    f, (ax1, ax2) = plt.subplots(1, 2)

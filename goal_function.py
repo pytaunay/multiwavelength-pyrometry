@@ -34,10 +34,10 @@ Inputs:
     - l1, l0: wavelengths (nm)
     - l_min, l_max: minimum and maximum wavelengths for the filtered data (nm)    
 '''
-def goal_function(X,logR,wl_v1,wl_v0,wl_min,wl_max):   
+def goal_function(poly_coeffs,logR,wl_v1,wl_v0,wl_min,wl_max):   
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
-    cheb = Chebyshev(X,[wl_min,wl_max])
+    cheb = Chebyshev(poly_coeffs,[wl_min,wl_max])
     
     # Calculate the emissivities at the corresponding wavelengths
     eps1 = chebyshev.chebval(wl_v1,cheb.coef)

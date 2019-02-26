@@ -131,7 +131,7 @@ pix_vec = np.linspace(0,2999,3000)
 pix_vec = np.array(pix_vec,dtype=np.int64)
 
 ### Chosen emissivity function
-chosen_eps = w_eps
+chosen_eps = gr_eps
 
 ### Create data
 T = 2000
@@ -263,7 +263,7 @@ refined_fit = False
 
 ### Do we have a "good enough" fit?   
 # If not, a few more operations are required
-nunk = 2
+nunk = 1
 while rse*100 > 0.5:
     refined_fit = True
     

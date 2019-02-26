@@ -56,10 +56,16 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 chosen_eps = gr_eps
 
 ### Create data
-T = 2500
+T = 3000
 
 #model_list = np.array([bb_eps,gr_eps,w_eps,art_eps])
 model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps])
+
+model_list = []
+for it in range(10):
+    model_list.append(bb_eps)
+    
+model_list = np.array(model_list)
 
 f,ax = plt.subplots(len(model_list),2)
 

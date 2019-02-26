@@ -19,6 +19,8 @@
 
 
 import numpy as np
+from numpy.polynomial import Chebyshev,chebyshev
+
 import matplotlib.pyplot as plt
 
 from generate_spectrum import generate_data,wien_approximation
@@ -98,8 +100,13 @@ for f_eps in model_list:
         # Calculate the average emissivity
         eps_ave = np.average(eps_vec)
         eps_std = np.std(eps_vec)
+        ax[it][1].plot(wl_vec,eps_ave*np.ones(len(wl_vec)))
         print(eps_ave,eps_std)
-
+        
+    if refined_fit:
+        eps_poly = Chebyshev(sol.x,[np.min(wl_vec),np.max(wl_vec)])
+        eps_val = chebyshev.chebval(wl_vec,eps_poly.coef)
+        ax[it][1].plot(wl_vec,eps_val)
     
     it += 1
 

@@ -34,24 +34,24 @@ Inputs:
     - l1, l0: wavelengths (nm)
     - l_min, l_max: minimum and maximum wavelengths for the filtered data (nm)    
 '''
-def goal_function(X,logR,l1,l0,l_min,l_max):   
+def goal_function(X,logR,wl_v1,wl_v0,wl_min,wl_max):   
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
-    cheb = Chebyshev(X,[l_min,l_max])
+    cheb = Chebyshev(X,[wl_min,wl_max])
     
     # Calculate the emissivities at the corresponding wavelengths
-    eps1 = chebyshev.chebval(l1,cheb.coef)
-    eps0 = chebyshev.chebval(l0,cheb.coef)
+    eps1 = chebyshev.chebval(wl_v1,cheb.coef)
+    eps0 = chebyshev.chebval(wl_v0,cheb.coef)
 
     # Invert of temperature    
     try:
-        invT = logR - 5 *np.log(l1/l0) - np.log(eps0/eps1)
+        invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
     except:
         return 1e5
     
     # Temperature
     T = 1/invT
-    T *= C2 * ( 1/l1 - 1/l0)
+    T *= C2 * ( 1/wl_v1 - 1/wl_v0)
     
     ret = np.std(T)
     

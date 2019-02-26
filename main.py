@@ -23,18 +23,18 @@ import matplotlib.pyplot as plt
 
 from scipy.interpolate import splrep
 
-
+from generate_spectrum import wien_approximation
 ### Emissivity functions
 # Tungsten 2000 K emissivity and polynomial of order 1 to fit it
 w_wl = np.array([300,350,400,500,600,700,800,900])
 w_eps_data = np.array([0.474,0.473,0.474,0.462,0.448,0.436,0.419,0.401])
 
 w_m,w_b = np.polyfit(w_wl,w_eps_data,deg=1)
-w_eps = lambda lnm,T: w_m*lnm + w_b
+w_eps = lambda wl,T: w_m*wl + w_b
 
 # Black and gray body
-bb_eps = lambda lnm,T: 1.0 * np.ones(len(lnm))
-gr_eps = lambda lnm,T: 0.1 * np.ones(len(lnm))
+bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
+gr_eps = lambda wl,T: 0.1 * np.ones(len(wl))
 
 # Artificial tests
 art_wl = np.array([300,500,1100])
@@ -42,7 +42,7 @@ art_eps_data = np.array([1,0.3,1])
 art_fac = np.polyfit(art_wl,art_eps_data,deg=2)
 
 a0,a1,a2 = art_fac
-art_eps = lambda lnm,T: a0*lnm**2 + a1*lnm + a2
+art_eps = lambda wl,T: a0*wl**2 + a1*wl + a2
 
 ### Vectors of pixels and wavelengths
 wl_vec = np.linspace(300,1100,(int)(3000))

@@ -19,14 +19,18 @@
 
 import numpy as np
 
+from np.polynomial import Chebyshev, chebyshev
+
 from scipy.interpolate import splev
 from scipy.stats import iqr
 
-from spectropyrometer_constants import pix_slice,C2
+from spectropyrometer_constants import C2
+from spectropyrometer_constants import pix_slice,max_poly_order,rse_threshold
+
 
 '''
 Function: tukey_fence
-Removes outliers using Tukey fencing
+Descritpion: Removes outliers using Tukey fencing
 Inputs:
     - Tvec: some vector
 Outputs:
@@ -43,19 +47,19 @@ def tukey_fence(Tvec):
     min_T = T_qua[0] - 1.25*T_iqr
     max_T = T_qua[1] + 1.25*T_iqr
     
-    T_left = Tout[(Tout>min_T) & (Tout<max_T)]
+    T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
     
     ### Calculate standard deviation, average, standard error
     std = np.std(T_left)
     Tave = np.mean(T_left)
     rse = std/Tave
-    
-    print(Tave,std,rse*100)    
+
+    return Tave,std,rse,T_left
 
 '''
-Function: simple_temperature
+Function: ce_temperature
 Calculates the temperature based on the averaging of multiple two-temperature
-predictions
+predictions and Constant Emissivity (CE)
 Inputs:
     - data_spl Spline representation of the filtered intensity data
     - pix_binned Pixels chosen for each pixel bin
@@ -65,9 +69,8 @@ Ouputs:
     - Predicted temperature from averaging (K)
     - Standard deviation (K)
     - Standard deviation (%)
-    - Flag indicating if advanced method was used
 '''
-def simple_temperature(data_spl,pix_binned,pix_vec,wl_vec):
+def ce_temperature(data_spl,pix_binned,pix_vec,wl_vec):
     Tout = []
     c_pix_array = []
     logR_array = []
@@ -90,12 +93,12 @@ def simple_temperature(data_spl,pix_binned,pix_vec,wl_vec):
         # Calculate the gray body temperature predicted by each pair of pixels         
         for p1 in p1vec:      
             # Pixels to wavelength          
-            l0 = wl_vec[p0]
-            l1 = wl_vec[p1]
+            wl0 = wl_vec[p0]
+            wl1 = wl_vec[p1]
             
             # Corresponding data from the filtered data
-            res0 = 10**splev(l0,data_spl)
-            res1 = 10**splev(l1,data_spl)
+            res0 = 10**splev(wl0,data_spl)
+            res1 = 10**splev(wl1,data_spl)
           
             # Ratio of intensities
             R = res0/res1
@@ -103,7 +106,7 @@ def simple_temperature(data_spl,pix_binned,pix_vec,wl_vec):
             # Handle edge cases
             # Try/catch to make sure the log spits out correct values
             try:
-                Ttarget = C2 * ( 1/l1 - 1/l0) / (np.log(R)-5*np.log(l1/l0))
+                Ttarget = C2 * ( 1/wl1 - 1/wl0) / (np.log(R)-5*np.log(wl1/wl0))
             except:
                 continue
             
@@ -121,7 +124,12 @@ def simple_temperature(data_spl,pix_binned,pix_vec,wl_vec):
     Tout = np.array(Tout)      
     logR_array = np.array(logR_array)    
 
-
+    ### Returns
+    Tave,std,rse,_ = tukey_fence(Tout)
+    
+    print("Simple temperature model:",Tave,std,rse*100)  
+    
+    return Tave,std,rse
 
 
 '''
@@ -139,74 +147,80 @@ Ouputs:
     - Flag indicating if advanced method was used
 '''
 def compute_temperature(data_spl,pix_binned,pix_vec,wl_vec):
+    refined_fit = False
 
+    ### Calculate the temperature with the simple model
+    Tave,std,rse = ce_temperature(data_spl,pix_binned,pix_vec,wl_vec)
     
-
-
-
-
-
-
-def compute_T(X,logR,l1,l0,lnm_binm,lnm_binM):  
-    lnm_min = np.min(lnm_vec)
-    lnm_max = np.max(lnm_vec)
-    
-    cheb = np.polynomial.Chebyshev(X,[lnm_min,lnm_max])
-    
-    eps1 = np.polynomial.chebyshev.chebval(l1,cheb.coef)
-    eps0 = np.polynomial.chebyshev.chebval(l0,cheb.coef)
-    
-    invt = logR - 5 *np.log(l1/l0) - np.log(eps0/eps1)
-#    print(invt)
-    
-    Tout = 1/invt
-    Tout *= C2 * ( 1/l1 - 1/l0)
-
-    T_iqr = iqr(Tout)
-    T_qua = np.percentile(Tout,[25,75])
+    ### Do we have a "good enough" fit?   
+    # If not, we assume first a linear function of emissivity and iterate
+    # from there
+    nunk = 2
+    while rse > rse_threshold and nunk < max_poly_order:
+        refined_fit = True
         
-    min_T = T_qua[0] - 1.25*T_iqr
-    max_T = T_qua[1] + 1.25*T_iqr
+        # Which wavelengths are associated with the pixel combinations?
+        wl_v0 = wl_vec[c_pix_array[:,0]]
+        wl_v1 = wl_vec[c_pix_array[:,1]]    
+    
+        # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
+        lnm_binm = wl_vec[bins]
+        lnm_binM = wl_vec[bins[1::]]
+        lnm_binM = np.append(lnm_binM,wl_vec[-1])
         
-    T_left = Tout[(Tout>min_T) & (Tout<max_T)]
+        f = lambda X: min_multivariate(X,logR_array,wl_v1,wl_v0,wl_vec)
+        
+        # Chebyshev polynomial coefficients
+    #    X0 = np.zeros(len(lnm_binm))
+    #    X0 = np.zeros(3)
+        X0 = np.zeros(nunk)
+        X0[0] = 0.1
     
-    ret = np.average(T_left)
-    std = np.std(T_left)
+        min_options = {'xatol':1e-10,'fatol':1e-10,'maxfev':5000}
+        sol = minimize(f,X0,method='Nelder-Mead',options = min_options)
     
-    return ret,std    
+        Tave,std = T_multivariate(sol.x,logR_array,lnm_vec1,lnm_vec0,lnm_binm,lnm_binM)
+        print(Tave,std,std/Tave*100,sol.x)
+        
+        rse = std/Tave
+        nunk = nunk + 1
     
+    
+'''
+Function: nce_temperature
+Calculates the temperature based on a Non-Constant Emissivity (NCE).
+The emissivity is modeled with a Chebyshev polynomial of order N where N 
+is determined by a separate routine
+Inputs:
+    - 
+Outputs:
+    - Predicted temperature from averaging (K)
+    - Standard deviation (K)
+    - Standard deviation (%)
+ '''
+def nce_temperature(poly_coeff,logR,
+                    wl1,wl0,
+                    wl_binm,wl_binM,
+                    wl_min,
+                    wl_max):  
+    
+    ### Polynomial representation of the emissivity
+    poly_eps = Chebyshev(poly_coeff,[wl_min,wl_max])
+    
+    ### Emissivities at the wavelengths of interest
+    eps1 = np.polynomial.chebyshev.chebval(wl1,poly_eps.coef)
+    eps0 = np.polynomial.chebyshev.chebval(wl0,poly_eps.coef)
+    
+    ### Inverse temperature
+    invT = logR - 5 *np.log(wl1/wl0) - np.log(eps0/eps1)
+    
+    ### Temperature
+    Tout = 1/invT
+    Tout *= C2 * ( 1/wl1 - 1/wl0)
 
-
-refined_fit = False
-
-### Do we have a "good enough" fit?   
-# If not, a few more operations are required
-nunk = 1
-while rse*100 > 0.5:
-    refined_fit = True
+    ### Returns
+    Tave,std,rse,_ = tukey_fence(Tout)
     
-    # Which wavelengths are associated with the pixel combinations?
-    lnm_vec0 = lnm_vec[c_pix_array[:,0]]
-    lnm_vec1 = lnm_vec[c_pix_array[:,1]]    
-
-    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
-    lnm_binm = lnm_vec[bins]
-    lnm_binM = lnm_vec[bins[1::]]
-    lnm_binM = np.append(lnm_binM,lnm_vec[-1])
+    print("Simple temperature model:",Tave,std,rse*100)  
     
-    f = lambda X: min_multivariate(X,logR_array,lnm_vec1,lnm_vec0,lnm_vec)
-    
-    # Chebyshev polynomial coefficients
-#    X0 = np.zeros(len(lnm_binm))
-#    X0 = np.zeros(3)
-    X0 = np.zeros(nunk)
-    X0[0] = 0.1
-
-    min_options = {'xatol':1e-10,'fatol':1e-10,'maxfev':5000}
-    sol = minimize(f,X0,method='Nelder-Mead',options = min_options)
-
-    Tave,std = T_multivariate(sol.x,logR_array,lnm_vec1,lnm_vec0,lnm_binm,lnm_binM)
-    print(Tave,std,std/Tave*100,sol.x)
-    
-    rse = std/Tave
-    nunk = nunk + 1
+    return Tave,std,rse    

@@ -43,9 +43,17 @@ Computes an artificial spectrum with noise
 Inputs:
     - wl_vec: vector of wavelengths
     - T: the target temperature
+    - pix_vec: the vector of pixel indices
     - f_eps: the emissivity chosen
+Ouputs:
+    - I_calc: the Wien approximation of the spectrum w/o any noise
+    - noisy_data: I_calc but with some noise
+    - filtered_data: the filtered 10-base logarithm of noisy_data
+    - data_spl: spline representation of the filtered data
+    - pix_vec_sub: the subset of pixels that we are dealing with (we remove 
+    the edges after the moving average)
 '''
-def generate_data(wl_vec,T,f_eps):
+def generate_data(wl_vec,T,pix_vec,f_eps):
     # Intensity from Wien's approximation
     I_calc = wien_approximation(wl_vec,T,f_eps)
     
@@ -70,12 +78,11 @@ def generate_data(wl_vec,T,f_eps):
     ### Remove the edge effects
     wl_vec_sub = wl_vec[window_length:-window_length]
     filtered_data = filtered_data[window_length:-window_length]
-    pix_vec = pix_vec[window_length:-window_length]
+    pix_vec_sub = pix_vec[window_length:-window_length]
     
     
     ### Fit a line through the noise with some smoothing
     data_spl = splrep(wl_vec_sub,filtered_data)
     
-    
-    return I_calc,noisy_data,filtered_data,data_spl
+    return I_calc,noisy_data,filtered_data,data_spl,pix_vec_sub
     

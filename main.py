@@ -58,7 +58,8 @@ chosen_eps = gr_eps
 ### Create data
 T = 2500
 
-model_list = np.array([bb_eps,gr_eps,w_eps,art_eps])
+#model_list = np.array([bb_eps,gr_eps,w_eps,art_eps])
+model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps])
 
 f,ax = plt.subplots(len(model_list),2)
 
@@ -93,7 +94,10 @@ for f_eps in model_list:
     ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
     
     T_string = str(round(Tave,1)) + "+/-" + str(round(std,2)) + " K"
-    ax[it][0].text(850,np.average(I_calc)/10,T_string)
+    error = np.abs((Tave-T)/T)*100
+    
+    T_string += "\n" + str(round(error,2)) + " %"
+    ax[it][0].text(850,np.average(I_calc)/100,T_string)
     
     # Emissivity
     ax[it][1].plot(wl_sub_vec,eps_vec)

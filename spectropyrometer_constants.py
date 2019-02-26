@@ -27,3 +27,8 @@ pix_slice = 300 # Total number of pixels to take into a slice
 max_poly_order = 5 # Maximum polynomial order to consider
 rse_threshold = 0.5 # Standard error threshold (%) before we consider the fit 
 # to be "bad"
+
+# Window length for the moving average
+window_length = (int)(pix_slice/3) 
+#if window_length % 2 == 0:
+#    window_length += 1

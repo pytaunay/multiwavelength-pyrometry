@@ -89,6 +89,6 @@ def generate_combinations(chosen_pix,pix_vec):
             cmb_pix.append((p0,p1))
             
     cmb_pix = np.array(cmb_pix)
-    return cmb_pix, chosen_pix
+    return cmb_pix
 
 

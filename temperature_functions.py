@@ -78,7 +78,6 @@ def ce_temperature(data_spl,cmb_pix,wl_vec):
     Tout = []
     logR_array = []
     
-    ### TODO: VECTORIZE?
     ### Standard computation
     # For each pair of pixels (p0,p1), calculate the gray body temperature 
     for p0,p1 in cmb_pix:        

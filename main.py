@@ -21,9 +21,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scipy.interpolate import splrep
+from generate_spectrum import generate_data
+from pixel_operations import choose_pixels, generate_combinations
+from temperature_functions import compute_temperature
 
-from generate_spectrum import wien_approximation
 ### Emissivity functions
 # Tungsten 2000 K emissivity and polynomial of order 1 to fit it
 w_wl = np.array([300,350,400,500,600,700,800,900])
@@ -55,71 +56,57 @@ chosen_eps = gr_eps
 ### Create data
 T = 2000
 
-for chosen_eps in np.array([bb_eps,gr_eps,w_eps,art_eps]):
-    # Intensity with added noise
-    I_calc = wien_approximation(wl_vec,T,chosen_eps)
-    noisy_data = np.random.normal(I_calc,0.1*I_calc)
+model_list = np.array([bb_eps,gr_eps,w_eps,art_eps])
+
+f,ax = plt.subplots(len(model_list),2)
+
+it = 0
+
+for f_eps in model_list:
+    print("Model: ",it)
     
+    # Generate some data
+    I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = generate_data(
+            wl_vec,T,pix_vec,f_eps)
+    wl_sub_vec = wl_vec[pix_sub_vec]
     
-    window_length = (int)(pix_slice/3)
-    if window_length % 2 == 0:
-        window_length += 1
+    # Pixel operations
+    chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
+    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
     
-    #filtered_data = savgol_filter(noisy_data,pix_slice+1,5,mode='nearest')
-    #filtered_data = moving_average(noisy_data,window_length)
+    # Compute the temperature
+    compute_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec)
     
-    log_noisy = np.log10(noisy_data)
-    
-    window_length = (int)(pix_slice/3)
-    # Edge mode is acceptable for higher values of lambda
-    data_padded = np.pad(log_noisy, (window_length//2, window_length-1-window_length//2), mode='edge')
-    
-    # Not so much for lower values; a linear fit to the data is better there
-    m_dp,b_dp = np.polyfit(lnm_vec[window_length:2*window_length],
-                     data_padded[window_length:2*window_length],1)
-    
-    #data_padded[0:window_length] = m_dp*lnm_vec[0:window_length] + b_dp
-    filtered_data = np.convolve(data_padded, np.ones((window_length,))/window_length, mode='valid')
-    
-    ### Remove the edge effects
-    #lnm_vec = lnm_vec[window_length:-window_length]
-    lnm_vec_sub = lnm_vec[window_length:-window_length]
-    filtered_data = filtered_data[window_length:-window_length]
-    pix_vec = pix_vec[window_length:-window_length]
-    
-    
-    ### Fit a line through the noise with some smoothing
-    #spl = splrep(lnm_vec,np.log10(filtered_data))
-    spl = splrep(lnm_vec_sub,filtered_data)
-    
-    
-    
-    
-    
-    ### Plots            
-    bb_reconstructed = wien_approx(lnm_vec_sub,Tave,bb_eps)
-    eps_vec = 10**filtered_data/bb_reconstructed
-    # Since we get epsilon from the filtered data, "reconstructed_data" will be
-    # exactly like "filtered_data"
-    reconstructed_data = bb_reconstructed * eps_vec # exactly filtered
-        
-    ## Subplots
-    f, (ax1, ax2) = plt.subplots(1, 2)
-    # Plot the intensity
-    ax1.semilogy(lnm_vec,noisy_data)
-    ax1.semilogy(lnm_vec_sub,reconstructed_data)
-    #ax1.semilogy(lnm_vec,)
-    
-    # Plot the emissivity
-    ax2.plot(lnm_vec_sub,eps_vec)
-    ax2.plot(lnm_vec,chosen_eps(lnm_vec,Tave),'--')
-    
-    if refined_fit:
-        eps_poly = np.polynomial.Chebyshev(sol.x,[np.min(lnm_vec),np.max(lnm_vec)])
-        eps_val = np.polynomial.chebyshev.chebval(lnm_vec,eps_poly.coef)
-        
-        ax2.plot(lnm_vec,eps_val,'-.')
-    
-    #epsret = eps_piecewise(sol.x,lnm_vec,lnm_binm,lnm_binM)
-    #ax2.plot(lnm_vec,epsret,'-.')
+    it += 1
+
+    ### Plots
+
+#    
+#    
+#    ### Plots            
+#    bb_reconstructed = wien_approx(lnm_vec_sub,Tave,bb_eps)
+#    eps_vec = 10**filtered_data/bb_reconstructed
+#    # Since we get epsilon from the filtered data, "reconstructed_data" will be
+#    # exactly like "filtered_data"
+#    reconstructed_data = bb_reconstructed * eps_vec # exactly filtered
+#        
+#    ## Subplots
+#    f, (ax1, ax2) = plt.subplots(1, 2)
+#    # Plot the intensity
+#    ax1.semilogy(lnm_vec,noisy_data)
+#    ax1.semilogy(lnm_vec_sub,reconstructed_data)
+#    #ax1.semilogy(lnm_vec,)
+#    
+#    # Plot the emissivity
+#    ax2.plot(lnm_vec_sub,eps_vec)
+#    ax2.plot(lnm_vec,chosen_eps(lnm_vec,Tave),'--')
+#    
+#    if refined_fit:
+#        eps_poly = np.polynomial.Chebyshev(sol.x,[np.min(lnm_vec),np.max(lnm_vec)])
+#        eps_val = np.polynomial.chebyshev.chebval(lnm_vec,eps_poly.coef)
+#        
+#        ax2.plot(lnm_vec,eps_val,'-.')
+#    
+#    #epsret = eps_piecewise(sol.x,lnm_vec,lnm_binm,lnm_binM)
+#    #ax2.plot(lnm_vec,epsret,'-.')
 

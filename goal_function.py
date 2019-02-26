@@ -19,9 +19,9 @@
 
 import numpy as np
 
-from np.polynomial import Chebyshev, chebyshev
+from numpy.polynomial import Chebyshev, chebyshev
 
-from spectro_pyrometer_constants import C2
+from spectropyrometer_constants import C2
 
 '''
 Function: goal_function
@@ -31,10 +31,10 @@ Inputs:
     emissivity. The basis for the fit is the Chebyshev polynomials.
     - logR: the natural logarithm of the ratio of intensity at wavelength l1
     to intensity at wavelength l0
-    - l1, l0: wavelengths (nm)
+    - wl_v0, wl_v1: Chosen wavelengths vectors (nm)
     - l_min, l_max: minimum and maximum wavelengths for the filtered data (nm)    
 '''
-def goal_function(poly_coeff,logR,wl_v1,wl_v0,wl_min,wl_max):   
+def goal_function(poly_coeff,logR,wl_v0,wl_v1,wl_min,wl_max):   
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
     cheb = Chebyshev(poly_coeff,[wl_min,wl_max])

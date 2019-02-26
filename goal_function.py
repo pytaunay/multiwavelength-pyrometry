@@ -59,5 +59,3 @@ def goal_function(X,logR,l1,l0,l_min,l_max):
         return 1e5
     else:   
         return ret
-    
-    

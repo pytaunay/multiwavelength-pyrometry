@@ -23,10 +23,12 @@ from np.polynomial import Chebyshev, chebyshev
 
 from scipy.interpolate import splev
 from scipy.stats import iqr
+from scipy.optimize import minimize
 
 from spectropyrometer_constants import C2
 from spectropyrometer_constants import pix_slice,max_poly_order,rse_threshold
 
+from goal_function import goal_function
 
 '''
 Function: tukey_fence
@@ -62,65 +64,52 @@ Calculates the temperature based on the averaging of multiple two-temperature
 predictions and Constant Emissivity (CE)
 Inputs:
     - data_spl Spline representation of the filtered intensity data
-    - pix_binned Pixels chosen for each pixel bin
-    - pix_vec Overall pixel vector
+    - cmb_pix Vector of pixel combinations
     - wl_vec Vector of wavelengths (nm)
 Ouputs:
     - Predicted temperature from averaging (K)
     - Standard deviation (K)
     - Standard deviation (%)
+    - Natural logarithm of ratio of intensities of two wavelengths. Useful for
+    the non-constant emissivity case as well and avoids having to recalculate
+    it.
 '''
-def ce_temperature(data_spl,pix_binned,pix_vec,wl_vec):
+def ce_temperature(data_spl,cmb_pix,wl_vec):
     Tout = []
-    c_pix_array = []
     logR_array = []
     
+    ### TODO: VECTORIZE?
     ### Standard computation
-    # For each pixel p0...
-    for p0 in pix_binned:
+    # For each pair of pixels (p0,p1), calculate the gray body temperature 
+    for p0,p1 in cmb_pix:        
         
-        # Get corresponding pair pixel above and below this pixel p0
-        # They belong to other slices
-        p1vec_p = pix_vec[p0::pix_slice]
-        p1vec_m = pix_vec[p0::-pix_slice]
+        # Pixel to wavelength
+        wl0 = wl_vec[p0]
+        wl1 = wl_vec[p1]
         
-        # Create a vector of pixels, remove any duplicates, make sure we do not
-        # include p0
-        p1vec = np.concatenate((p1vec_m,p1vec_p))
-        p1vec = np.unique(p1vec)
-        p1vec = p1vec[p1vec != p0]
+        # Corresponding data from the filtered data
+        res0 = 10**splev(wl0,data_spl)
+        res1 = 10**splev(wl1,data_spl)
+      
+        # Ratio of intensities
+        R = res0/res1
         
-        # Calculate the gray body temperature predicted by each pair of pixels         
-        for p1 in p1vec:      
-            # Pixels to wavelength          
-            wl0 = wl_vec[p0]
-            wl1 = wl_vec[p1]
-            
-            # Corresponding data from the filtered data
-            res0 = 10**splev(wl0,data_spl)
-            res1 = 10**splev(wl1,data_spl)
-          
-            # Ratio of intensities
-            R = res0/res1
-            
-            # Handle edge cases
-            # Try/catch to make sure the log spits out correct values
-            try:
-                Ttarget = C2 * ( 1/wl1 - 1/wl0) / (np.log(R)-5*np.log(wl1/wl0))
-            except:
-                continue
-            
-            # Skip if negative or NaN
-            if Ttarget < 0 or np.isnan(Ttarget):
-                continue
-            
-            # Build vector
-            Tout.append(Ttarget)
-            c_pix_array.append((p0,p1))
-            logR_array.append(np.log(R))
+        # Handle edge cases
+        # Try/catch to make sure the log spits out correct values
+        try:
+            Ttarget = C2 * ( 1/wl1 - 1/wl0) / (np.log(R)-5*np.log(wl1/wl0))
+        except:
+            continue
+        
+        # Skip if negative or NaN
+        if Ttarget < 0 or np.isnan(Ttarget):
+            continue
+        
+        # Build vector
+        Tout.append(Ttarget)
+        logR_array.append(np.log(R))
     
     ### Convert to numpy arrays
-    c_pix_array = np.array(c_pix_array)
     Tout = np.array(Tout)      
     logR_array = np.array(logR_array)    
 
@@ -129,7 +118,7 @@ def ce_temperature(data_spl,pix_binned,pix_vec,wl_vec):
     
     print("Simple temperature model:",Tave,std,rse*100)  
     
-    return Tave,std,rse
+    return Tave,std,rse,logR_array
 
 
 '''
@@ -159,6 +148,9 @@ def compute_temperature(data_spl,pix_binned,pix_vec,wl_vec):
     while rse > rse_threshold and nunk < max_poly_order:
         refined_fit = True
         
+        wl_min = np.min(wl_vec)
+        wl_max = np.max(wl_vec)
+        
         # Which wavelengths are associated with the pixel combinations?
         wl_v0 = wl_vec[c_pix_array[:,0]]
         wl_v1 = wl_vec[c_pix_array[:,1]]    
@@ -168,17 +160,18 @@ def compute_temperature(data_spl,pix_binned,pix_vec,wl_vec):
         lnm_binM = wl_vec[bins[1::]]
         lnm_binM = np.append(lnm_binM,wl_vec[-1])
         
-        f = lambda X: min_multivariate(X,logR_array,wl_v1,wl_v0,wl_vec)
+        # Define the goal function
+        f = lambda pc: goal_function(pc,logR_array,wl_v1,wl_v0,wl_min,wl_max)
         
-        # Chebyshev polynomial coefficients
-    #    X0 = np.zeros(len(lnm_binm))
-    #    X0 = np.zeros(3)
-        X0 = np.zeros(nunk)
-        X0[0] = 0.1
-    
+        # Initial values of coefficients
+        pc0 = np.zeros(nunk)
+        pc0[0] = 0.1
+        
+        # Minimization
         min_options = {'xatol':1e-10,'fatol':1e-10,'maxfev':5000}
-        sol = minimize(f,X0,method='Nelder-Mead',options = min_options)
+        sol = minimize(f,pc0,method='Nelder-Mead',options = min_options)
     
+        # Calculate temperature from solution
         Tave,std = T_multivariate(sol.x,logR_array,lnm_vec1,lnm_vec0,lnm_binm,lnm_binM)
         print(Tave,std,std/Tave*100,sol.x)
         
@@ -208,8 +201,8 @@ def nce_temperature(poly_coeff,logR,
     poly_eps = Chebyshev(poly_coeff,[wl_min,wl_max])
     
     ### Emissivities at the wavelengths of interest
-    eps1 = np.polynomial.chebyshev.chebval(wl1,poly_eps.coef)
-    eps0 = np.polynomial.chebyshev.chebval(wl0,poly_eps.coef)
+    eps1 = chebyshev.chebval(wl1,poly_eps.coef)
+    eps0 = chebyshev.chebval(wl0,poly_eps.coef)
     
     ### Inverse temperature
     invT = logR - 5 *np.log(wl1/wl0) - np.log(eps0/eps1)

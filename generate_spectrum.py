@@ -19,6 +19,8 @@
 
 import numpy as np
 
+from spectropyrometer_constants import C1,C2
+
 '''
 Function: wien_approximation
 Calculates the Wien approximation to Planck's law for non-constant emissivity
@@ -28,10 +30,7 @@ Inputs:
     - f_eps: a lambda function representing the emissivity as function of
     temperature and wavelength
 '''
-def wien_approximation(lnm,T,f_eps):
-    C1 = 1.191e16 # W/nm4/cm2 Sr
-    C2 = 1.4384e7 # nm K
-    
+def wien_approximation(lnm,T,f_eps):    
     eps = f_eps(lnm,T) # Emissivity
     
     return eps * C1 / lnm**5 * np.exp(-C2/(T*lnm))

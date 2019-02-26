@@ -135,6 +135,7 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     # Minimum and maximum wavelengths
     wl_min = np.min(wl_vec)
     wl_max = np.max(wl_vec)
+    wl_ave = np.average(wl_vec)
 
     # Which wavelengths are associated with the pixel combinations?
     wl_v0 = wl_vec[cmb_pix[:,0]]
@@ -155,18 +156,28 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     # If not, we assume first a linear function of emissivity and iterate
     # from there
     nunk = 2
+    perturb = False
     while rse > rse_threshold and nunk < max_poly_order:
         refined_fit = True
-       
+
+        # What is our previous standard error?
+        rse_nm1 = rse
+        
         # Define the goal function
         f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
         
         # Initial values of coefficients
         pc0 = np.zeros(nunk)
-        pc0[0] = 0.1
+        pc0[0] =  0.5     
         
+        if perturb:
+            pc0[0] = 0
+            while pc0[0] == 0:
+                pc0[0] = np.random.sample()
+               
+
         # Minimization
-        min_options = {'xatol':1e-10,'fatol':1e-10,'maxfev':5000}
+        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000}
         sol = minimize(f,pc0,method='Nelder-Mead',options = min_options)
     
         # Calculate temperature from solution
@@ -176,8 +187,23 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
                     wl_min,
                     wl_max)
         
-        print("Advanced temperature model:",Tave,std,rse,sol.x)
+        print("Advanced temperature model:",Tave,std,rse,sol.x,pc0[0])
         
+#        # If our new standard error is BIGGER than the previous one
+#        # AND we did NOT perturb the initial values already
+#        # THEN we decrease the order of the polynomial and perturb
+#        if rse_nm1 < rse and not perturb:
+#            nunk = nunk-1
+#            perturb = True
+#            if nunk == 1:
+#                nunk = 2
+#        # If we already perturbed the vector and it did not go well, we just
+#        # go ahead and perturb it again
+#        elif rse_nm1 < rse and perturb:
+#            perturb = True
+#        else:
+#            nunk = nunk + 1
+#            perturb = False
         nunk = nunk + 1
     
     return Tave,std,rse,refined_fit,sol

@@ -56,7 +56,7 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 chosen_eps = gr_eps
 
 ### Create data
-T = 2000
+T = 2500
 
 model_list = np.array([bb_eps,gr_eps,w_eps,art_eps])
 
@@ -91,6 +91,9 @@ for f_eps in model_list:
     # Intensity
     ax[it][0].semilogy(wl_vec,noisy_data)
     ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
+    
+    T_string = str(round(Tave,1)) + "+/-" + str(round(std,2)) + " K"
+    ax[it][0].text(850,np.average(I_calc)/10,T_string)
     
     # Emissivity
     ax[it][1].plot(wl_sub_vec,eps_vec)

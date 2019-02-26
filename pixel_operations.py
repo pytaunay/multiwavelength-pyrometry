@@ -62,17 +62,12 @@ Function: generate_combinations
 Generates the pixel combinations that are used to compute the estimated 
 "two-wavelengths" temperature
 Inputs:
-    - pix_vec: the vector of pixels with which we work
-    - bin_method: the method by which a pixel is picked from a bin. "Average"
-    uses the average value of the boundaries of the pixel bin. "Random" picks
-    a random pixel within the boundaries of the pixel bin
+    - chosen_pix: the subset of pixels with which we work 
+    - pix_vec: all of the pixels
 Outputs:
     - cmb_pix: the array of pixel combinations    
 '''
-def generate_combinations(pix_vec,bin_method='average'):
-  
-    chosen_pix = choose_pixels(pix_vec,bin_method)    
-    
+def generate_combinations(chosen_pix,pix_vec):
     cmb_pix = []
 
     # For each pixel p0 we picked...
@@ -94,6 +89,6 @@ def generate_combinations(pix_vec,bin_method='average'):
             cmb_pix.append((p0,p1))
             
     cmb_pix = np.array(cmb_pix)
-    return cmb_pix
+    return cmb_pix, chosen_pix
 
 

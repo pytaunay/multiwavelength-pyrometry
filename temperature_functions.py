@@ -127,8 +127,10 @@ Ouputs:
     - Standard deviation (%)
     - Flag indicating if advanced method was used
 '''
-def compute_temperature(data_spl,cmb_pix,bins,wl_vec):
+def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     refined_fit = False
+    
+    bins = pix_vec[0::pix_slice]
     
     # Minimum and maximum wavelengths
     wl_min = np.min(wl_vec)
@@ -213,7 +215,5 @@ def nce_temperature(poly_coeff,logR,
 
     ### Returns
     Tave,std,rse,_ = tukey_fence(Tout)
-    
-    print("Simple temperature model:",Tave,std,rse)  
     
     return Tave,std,rse    

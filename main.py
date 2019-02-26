@@ -23,12 +23,13 @@ import matplotlib.pyplot as plt
 
 from scipy.interpolate import splrep
 
+
 ### Emissivity functions
 # Tungsten 2000 K emissivity and polynomial of order 1 to fit it
-w_lnm = np.array([300,350,400,500,600,700,800,900])
+w_wl = np.array([300,350,400,500,600,700,800,900])
 w_eps_data = np.array([0.474,0.473,0.474,0.462,0.448,0.436,0.419,0.401])
 
-w_m,w_b = np.polyfit(w_lnm,w_eps_data,deg=1)
+w_m,w_b = np.polyfit(w_wl,w_eps_data,deg=1)
 w_eps = lambda lnm,T: w_m*lnm + w_b
 
 # Black and gray body
@@ -36,15 +37,15 @@ bb_eps = lambda lnm,T: 1.0 * np.ones(len(lnm))
 gr_eps = lambda lnm,T: 0.1 * np.ones(len(lnm))
 
 # Artificial tests
-art_lnm = np.array([300,500,1100])
+art_wl = np.array([300,500,1100])
 art_eps_data = np.array([1,0.3,1])
-art_fac = np.polyfit(art_lnm,art_eps_data,deg=2)
+art_fac = np.polyfit(art_wl,art_eps_data,deg=2)
 
 a0,a1,a2 = art_fac
 art_eps = lambda lnm,T: a0*lnm**2 + a1*lnm + a2
 
 ### Vectors of pixels and wavelengths
-lnm_vec = np.linspace(300,1100,(int)(3000))
+wl_vec = np.linspace(300,1100,(int)(3000))
 pix_vec = np.linspace(0,2999,3000)
 pix_vec = np.array(pix_vec,dtype=np.int64)
 
@@ -53,7 +54,6 @@ chosen_eps = gr_eps
 
 ### Create data
 T = 2000
-print(T)
 
 # Intensity with addeded noise
 I_calc = wien_approx(lnm_vec,T,chosen_eps)

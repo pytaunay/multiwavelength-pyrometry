@@ -30,7 +30,7 @@ Inputs:
     - f_eps: a lambda function representing the emissivity as function of
     temperature and wavelength
 '''
-def wien_approximation(lnm,T,f_eps):    
-    eps = f_eps(lnm,T) # Emissivity
+def wien_approximation(wl,T,f_eps):    
+    eps = f_eps(wl,T) # Emissivity
     
-    return eps * C1 / lnm**5 * np.exp(-C2/(T*lnm))
+    return eps * C1 / wl**5 * np.exp(-C2/(T*wl))

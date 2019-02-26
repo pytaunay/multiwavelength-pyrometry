@@ -29,7 +29,7 @@ from scipy.optimize import curve_fit,minimize
 C1 = 1.191e16 # W/nm4/cm2 Sr
 C2 = 1.4384e7 # nm K
 
-pix_slice = 300
+pix_slice = 400
 
 '''
 Function: wien_approx
@@ -141,15 +141,37 @@ print(T)
 I_calc = wien_approx(lnm_vec,T,chosen_eps)
 noisy_data = np.random.normal(I_calc,0.1*I_calc)
 
-### Filter data with a Savgol filter
-window_length = (int)(pix_slice/5)
+
+window_length = (int)(pix_slice/3)
 if window_length % 2 == 0:
     window_length += 1
 
-filtered_data = savgol_filter(noisy_data,window_length,3)
+#filtered_data = savgol_filter(noisy_data,pix_slice+1,5,mode='nearest')
+#filtered_data = moving_average(noisy_data,window_length)
+
+log_noisy = np.log10(noisy_data)
+
+window_length = (int)(pix_slice/3)
+# Edge mode is acceptable for higher values of lambda
+data_padded = np.pad(log_noisy, (window_length//2, window_length-1-window_length//2), mode='edge')
+
+# Not so much for lower values; a linear fit to the data is better there
+m_dp,b_dp = np.polyfit(lnm_vec[window_length:2*window_length],
+                 data_padded[window_length:2*window_length],1)
+
+#data_padded[0:window_length] = m_dp*lnm_vec[0:window_length] + b_dp
+filtered_data = np.convolve(data_padded, np.ones((window_length,))/window_length, mode='valid')
+
+### Remove the edge effects
+#lnm_vec = lnm_vec[window_length:-window_length]
+lnm_vec_sub = lnm_vec[window_length:-window_length]
+filtered_data = filtered_data[window_length:-window_length]
+pix_vec = pix_vec[window_length:-window_length]
+
 
 ### Fit a line through the noise with some smoothing
-spl = splrep(lnm_vec,np.log10(filtered_data))
+#spl = splrep(lnm_vec,np.log10(filtered_data))
+spl = splrep(lnm_vec_sub,filtered_data)
 
 ### Bin the pixels
 bins = pix_vec[0::pix_slice]
@@ -241,7 +263,7 @@ refined_fit = False
 
 ### Do we have a "good enough" fit?   
 # If not, a few more operations are required
-if rse*100 > 0.75:
+if rse*100 > 0.5:
     refined_fit = True
     
     # Which wavelengths are associated with the pixel combinations?
@@ -258,18 +280,17 @@ if rse*100 > 0.75:
     # Chebyshev polynomial coefficients
 #    X0 = np.zeros(len(lnm_binm))
     X0 = np.zeros(3)
-    X0[0] = 1
+    X0[0] = 0.1
 
-    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':3000}
+    min_options = {'xatol':1e-10,'fatol':1e-10,'maxfev':5000}
     sol = minimize(f,X0,method='Nelder-Mead',options = min_options)
-#    sol = minimize(f,X0,options=min_options)
 
     Tave,std = T_multivariate(sol.x,logR_array,lnm_vec1,lnm_vec0,lnm_binm,lnm_binM)
     print(Tave,std,std/Tave*100,sol.x)
 
 ### Plots            
-bb_reconstructed = wien_approx(lnm_vec,Tave,bb_eps)
-eps_vec = filtered_data/bb_reconstructed
+bb_reconstructed = wien_approx(lnm_vec_sub,Tave,bb_eps)
+eps_vec = 10**filtered_data/bb_reconstructed
 # Since we get epsilon from the filtered data, "reconstructed_data" will be
 # exactly like "filtered_data"
 reconstructed_data = bb_reconstructed * eps_vec # exactly filtered
@@ -278,10 +299,11 @@ reconstructed_data = bb_reconstructed * eps_vec # exactly filtered
 f, (ax1, ax2) = plt.subplots(1, 2)
 # Plot the intensity
 ax1.semilogy(lnm_vec,noisy_data)
-ax1.semilogy(lnm_vec,reconstructed_data)
+ax1.semilogy(lnm_vec_sub,reconstructed_data)
+#ax1.semilogy(lnm_vec,)
 
 # Plot the emissivity
-ax2.plot(lnm_vec,eps_vec)
+ax2.plot(lnm_vec_sub,eps_vec)
 ax2.plot(lnm_vec,chosen_eps(lnm_vec,Tave),'--')
 
 if refined_fit:

@@ -19,7 +19,7 @@
 
 import numpy as np
 
-from np.polynomial import Chebyshev, chebyshev
+from numpy.polynomial import Chebyshev, chebyshev
 
 from scipy.interpolate import splev
 from scipy.stats import iqr

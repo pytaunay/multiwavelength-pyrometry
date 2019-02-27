@@ -29,6 +29,6 @@ rse_threshold = 0.5 # Standard error threshold (%) before we consider the fit
 # to be "bad"
 
 # Window length for the moving average
-window_length = (int)(pix_slice/3) 
+window_length = (int)(pix_slice) 
 #if window_length % 2 == 0:
 #    window_length += 1

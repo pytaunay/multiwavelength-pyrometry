@@ -63,7 +63,7 @@ model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_e
 
 model_list = []
 for it in range(10):
-    model_list.append(bb_eps)
+    model_list.append(w_eps)
     
 model_list = np.array(model_list)
 
@@ -91,10 +91,16 @@ for f_eps in model_list:
     eps_vec = 10**filtered_data/bb_reconstructed
     # Since we get epsilon from the filtered data, "reconstructed_data" will be
     # exactly like "filtered_data"
+        
     reconstructed_data = bb_reconstructed * eps_vec # exactly filtered   
     
     
     ### Plots
+    if it == 0:
+        ax[it][0].set_title("Intensity")
+        ax[it][1].set_title("Emissivity")
+        
+    
     # Intensity
     ax[it][0].semilogy(wl_vec,noisy_data)
     ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
@@ -106,8 +112,8 @@ for f_eps in model_list:
     ax[it][0].text(850,np.average(I_calc)/100,T_string)
     
     # Emissivity
-    ax[it][1].plot(wl_sub_vec,eps_vec)
     ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
+    ax[it][1].plot(wl_sub_vec,eps_vec)
     
     if not refined_fit:
         # Calculate the average emissivity
@@ -121,8 +127,13 @@ for f_eps in model_list:
         eps_val = chebyshev.chebval(wl_vec,eps_poly.coef)
         ax[it][1].plot(wl_vec,eps_val)
     
+
+    
     it += 1
 
+
+ax[it-1][0].set_xlabel("Wavelength (nm)")
+ax[it-1][1].set_xlabel("Wavelength (nm)")
 
 #    
 #    

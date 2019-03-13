@@ -134,7 +134,7 @@ for f_eps in model_list:
 
 ax[it-1][0].set_xlabel("Wavelength (nm)")
 ax[it-1][1].set_xlabel("Wavelength (nm)")
-
+plt.rcParams.update({'font.size':10})
 #    
 #    
 #    ### Plots            

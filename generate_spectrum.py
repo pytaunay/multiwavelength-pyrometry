@@ -38,7 +38,7 @@ def wien_approximation(wl,T,f_eps):
     return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
 
 '''
-Function: generate_artificial_spectrum
+Function: generate_data
 Computes an artificial spectrum with noise
 Inputs:
     - wl_vec: vector of wavelengths
@@ -86,3 +86,6 @@ def generate_data(wl_vec,T,pix_vec,f_eps):
     
     return I_calc,noisy_data,filtered_data,data_spl,pix_vec_sub
     
+#def generate_emission_line(wl):
+    
+

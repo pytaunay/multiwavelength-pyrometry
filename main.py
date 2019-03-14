@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 from generate_spectrum import generate_data,wien_approximation
 from pixel_operations import choose_pixels, generate_combinations
 from temperature_functions import compute_temperature
+from kfold import compute_kfold_temp
 
 ### Emissivity functions
 # Tungsten 2000 K emissivity and polynomial of order 1 to fit it
@@ -62,7 +63,7 @@ T = 3000
 model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps])
 
 model_list = []
-for it in range(10):
+for it in range(2):
     model_list.append(w_eps)
     
 model_list = np.array(model_list)
@@ -79,13 +80,17 @@ for f_eps in model_list:
             wl_vec,T,pix_vec,f_eps)
     wl_sub_vec = wl_vec[pix_sub_vec]
     
-    ### Pixel operations
-    chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
-    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+#    ### Pixel operations
+#    chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
+#    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
     
     ### Compute the temperature
-    Tave,std,rse,refined_fit,sol = compute_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec)
- 
+#    Tave,std,rse,refined_fit,sol = compute_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec)
+    with np.errstate(invalid='raise'):
+        Tave,std,rse,sol,mse,refined_fit = compute_kfold_temp(data_spl,filtered_data,
+                           pix_sub_vec,wl_vec,
+                           bb_eps)
+
     ### Reconstruct data
     bb_reconstructed = wien_approximation(wl_sub_vec,Tave,bb_eps)
     eps_vec = 10**filtered_data/bb_reconstructed
@@ -93,7 +98,16 @@ for f_eps in model_list:
     # exactly like "filtered_data"
         
     reconstructed_data = bb_reconstructed * eps_vec # exactly filtered   
-    
+
+    reconstruct_alt = wien_approximation(wl_sub_vec,Tave,bb_eps)
+    pwr = 0
+    eps_vec = np.zeros(len(wl_sub_vec))
+    for c in sol.x:
+        eps_vec += c * wl_sub_vec ** pwr
+        pwr += 1
+        
+    reconstruct_alt *= eps_vec
+#    reconstruct_alt = np.log10(np.abs(reconstruct_alt))    
     
     ### Plots
     if it == 0:
@@ -104,6 +118,7 @@ for f_eps in model_list:
     # Intensity
     ax[it][0].semilogy(wl_vec,noisy_data)
     ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
+    ax[it][0].semilogy(wl_sub_vec,reconstruct_alt)
     
     T_string = str(round(Tave,1)) + "+/-" + str(round(std,2)) + " K"
     error = np.abs((Tave-T)/T)*100
@@ -130,11 +145,11 @@ for f_eps in model_list:
 
     
     it += 1
-
-
-ax[it-1][0].set_xlabel("Wavelength (nm)")
-ax[it-1][1].set_xlabel("Wavelength (nm)")
-plt.rcParams.update({'font.size':10})
+#
+#
+#ax[it-1][0].set_xlabel("Wavelength (nm)")
+#ax[it-1][1].set_xlabel("Wavelength (nm)")
+#plt.rcParams.update({'font.size':10})
 #    
 #    
 #    ### Plots            

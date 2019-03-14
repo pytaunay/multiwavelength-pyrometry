@@ -44,16 +44,18 @@ def goal_function(poly_coeff,logR,wl_v0,wl_v1,wl_min,wl_max):
     eps0 = chebyshev.chebval(wl_v0,cheb.coef)
 
     # Invert of temperature    
-    try:
-        invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
-    except:
-        return 1e5
-    
-    # Temperature
-    T = 1/invT
-    T *= C2 * ( 1/wl_v1 - 1/wl_v0)
-    
-    ret = np.std(T)
+    with np.errstate(invalid='raise'):
+        try:
+            invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
+
+            # Temperature
+            T = 1/invT
+            T *= C2 * ( 1/wl_v1 - 1/wl_v0)
+
+            ret = np.std(T)
+        
+        except:
+            ret = 1e5
     
     if np.isnan(ret):
         return 1e5

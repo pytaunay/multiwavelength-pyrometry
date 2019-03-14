@@ -111,6 +111,21 @@ for f_eps in model_list:
     T_string += "\n" + str(round(error,2)) + " %"
     ax[it][0].text(850,np.average(I_calc)/100,T_string)
     
+    if error > 5:
+        bad_data = {}
+        bad_data['I_calc'] = np.copy(I_calc)
+        bad_data['noisy_data'] = np.copy(noisy_data)
+        bad_data['filtered_data'] = np.copy(filtered_data)
+        bad_data['data_spl'] = np.copy(data_spl)
+        bad_data['pix_sub_vec'] = np.copy(pix_sub_vec)
+        bad_data['wl_sub_vec'] = np.copy(wl_vec)
+        bad_data['chosen_pix'] = np.copy(chosen_pix)
+        bad_data['cmb_pix'] = np.copy(cmb_pix)
+        bad_data['bb_reconstructed'] = np.copy(bb_reconstructed)
+        bad_data['eps_vec'] = np.copy(eps_vec)
+        bad_data['Tave'] = Tave
+        bad_data['wl_vec'] = np.copy(wl_vec)
+    
     # Emissivity
     ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
     ax[it][1].plot(wl_sub_vec,eps_vec)
@@ -121,11 +136,13 @@ for f_eps in model_list:
         eps_std = np.std(eps_vec)
         ax[it][1].plot(wl_vec,eps_ave*np.ones(len(wl_vec)))
         print(eps_ave,eps_std)
+        ax[it][1].set_ylim([0,1])
         
     if refined_fit:
         eps_poly = Chebyshev(sol.x,[np.min(wl_vec),np.max(wl_vec)])
         eps_val = chebyshev.chebval(wl_vec,eps_poly.coef)
         ax[it][1].plot(wl_vec,eps_val)
+        ax[it][1].set_ylim([0,1])
     
 
     

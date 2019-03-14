@@ -19,6 +19,7 @@
 
 
 import numpy as np
+import itertools
 
 from spectropyrometer_constants import pix_slice
 
@@ -70,24 +71,27 @@ Outputs:
 def generate_combinations(chosen_pix,pix_vec):
     cmb_pix = []
 
-    # For each pixel p0 we picked...
-    for p0 in chosen_pix:
-        
-        # Get corresponding pair pixel above and below this pixel p0
-        # They belong to other slices
-        p1vec_p = pix_vec[p0::pix_slice]
-        p1vec_m = pix_vec[p0::-pix_slice]
-        
-        # Create a vector of pixels, remove any duplicates, make sure we do not
-        # include p0
-        p1vec = np.concatenate((p1vec_m,p1vec_p))
-        p1vec = np.unique(p1vec)
-        p1vec = p1vec[p1vec != p0]
-        
-        # Create the list of combinations        
-        for p1 in p1vec:      
-            cmb_pix.append((p0,p1))
-            
+    for i,j in itertools.combinations(chosen_pix,2):
+        cmb_pix.append([i,j])
+
+#    # For each pixel p0 we picked...
+#    for p0 in chosen_pix:
+#        
+#        # Get corresponding pair pixel above and below this pixel p0
+#        # They belong to other slices
+#        p1vec_p = pix_vec[p0::pix_slice]
+#        p1vec_m = pix_vec[p0::-pix_slice]
+#        
+#        # Create a vector of pixels, remove any duplicates, make sure we do not
+#        # include p0
+#        p1vec = np.concatenate((p1vec_m,p1vec_p))
+#        p1vec = np.unique(p1vec)
+#        p1vec = p1vec[p1vec != p0]
+#        
+#        # Create the list of combinations        
+#        for p1 in p1vec:      
+#            cmb_pix.append((p0,p1))
+#            
     cmb_pix = np.array(cmb_pix)
     return cmb_pix
 

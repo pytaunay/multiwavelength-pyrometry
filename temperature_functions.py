@@ -158,6 +158,7 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     # from there
     nunk = 2
     perturb = False
+    sol_all = []
     while rse > rse_threshold and nunk < max_poly_order:
         refined_fit = True
 
@@ -210,9 +211,72 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
 #            nunk = nunk + 1
 #            perturb = False
         nunk = nunk + 1
+        sol_all.append(sol.x)
     
-    return Tave,std,rse,refined_fit,sol
+    return Tave,std,rse,refined_fit,sol,sol_all
+   
+'''
+Function: compute_poly_temperature
+Calculates the temperature based on the assumption of a polynomial order
+Inputs:
+    - data_spl Spline representation of the filtered intensity data
+    - cmb_pix Pixels chosen for each pixel bin
+    - pix_vec Overall pixel vector
+    - wl_vec Vector of wavelengths (nm)
+Ouputs:
+    - Predicted temperature from averaging (K)
+    - Standard deviation (K)
+    - Standard deviation (%)
+    - Flag indicating if advanced method was used
+'''
+def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):    
+    bins = pix_vec[0::pix_slice]
     
+    # Minimum and maximum wavelengths
+    wl_min = np.min(wl_vec)
+    wl_max = np.max(wl_vec)
+    wl_ave = np.average(wl_vec)
+
+    # Which wavelengths are associated with the pixel combinations?
+    wl_v0 = wl_vec[cmb_pix[:,0]]
+    wl_v1 = wl_vec[cmb_pix[:,1]] 
+
+
+    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
+    wl_binm = wl_vec[bins]
+    wl_binM = wl_vec[bins[1::]]
+    wl_binM = np.append(wl_binM,wl_vec[-1])
+    
+    ### Calculate the temperature with the simple model
+    Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
+    sol = None
+    
+    ### Do we have a "good enough" fit?   
+    # If not, we assume first a linear function of emissivity and iterate
+    # from there
+
+    # Define the goal function
+    f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
+        
+    # Initial values of coefficients
+    pc0 = np.zeros(order+1)
+    pc0[0] =  0.5     
+            
+
+    # Minimization
+    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
+    sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+    
+    # Calculate temperature from solution
+    Tave,std,rse = nce_temperature(sol.x,logR,
+                        wl_v0,wl_v1,
+                        wl_binm,wl_binM,
+                        wl_min,
+                        wl_max)
+    
+    return Tave,std,rse,sol    
+
+
 '''
 Function: nce_temperature
 Calculates the temperature based on a Non-Constant Emissivity (NCE).

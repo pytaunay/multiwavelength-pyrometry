@@ -23,7 +23,7 @@ from numpy.polynomial import Chebyshev, chebyshev
 
 from scipy.interpolate import splev
 from scipy.stats import iqr
-from scipy.optimize import minimize
+from scipy.optimize import minimize, lsq_linear, basinhopping
 
 from spectropyrometer_constants import C2
 from spectropyrometer_constants import pix_slice,max_poly_order,rse_threshold
@@ -113,6 +113,7 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
     return Tave,std,rse,logR_array
 
 
+
 '''
 Function: compute_temperature
 Calculates the temperature
@@ -177,9 +178,13 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
                
 
         # Minimization
-        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000}
-        sol = minimize(f,pc0,method='Nelder-Mead',options = min_options)
-    
+        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
+#        min_options = {'gtol':1e-15} # BFGS
+#        min_options = {'tol':1e-15,'maxiter':20000} # COBYLA
+#        min_options = {'ftol':1e-15,'eps':1e-2} # SLSQP
+        sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+#        sol = basinhopping(f,pc0)
+
         # Calculate temperature from solution
         Tave,std,rse = nce_temperature(sol.x,logR,
                     wl_v0,wl_v1,
@@ -234,13 +239,95 @@ def nce_temperature(poly_coeff,logR,
     eps0 = chebyshev.chebval(wl_v0,poly_eps.coef)
     
     ### Inverse temperature
-    invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
+    try:
+        invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
+        
+        ### Temperature
+        Tout = 1/invT
+        Tout *= C2 * ( 1/wl_v1 - 1/wl_v0)
     
-    ### Temperature
-    Tout = 1/invT
-    Tout *= C2 * ( 1/wl_v1 - 1/wl_v0)
-
-    ### Returns
-    Tave,std,rse,_ = tukey_fence(Tout)
+        ### Returns
+        Tave,std,rse,_ = tukey_fence(Tout)
+    except:
+        Tave,std,rse = 1e5 * np.ones(3)
     
     return Tave,std,rse    
+
+# Calibration would be as follows
+# Use a blackbody to calibrate instrument such that a CONSTANT value is used
+# as a scaling factor:
+# V_bb = A / l^5 exp(-C2/l*T_cal)
+# A contains detector characteristics and also C1
+# Assume that "A" does not change with temperature:
+# V_measured = A * eps / l^5 exp(-C2/l*T_true)
+# V_measured / V_bb = eps * exp(-C2/l*T_true) * exp(C2/l*T_cal)
+
+def target_alt(log_eps,args):    
+    wl_sub_vec, logR, Tcal = args
+    
+    Tvec = C2 / wl_sub_vec
+    Tvec /= log_eps - logR + C2/(wl_sub_vec * Tcal)
+    
+#    print(np.mean(Tvec),np.std(Tvec))
+    
+    return np.std(Tvec)
+
+
+def compute_temperature_alt(Tguess,Tcal,V_bb,V_meas,
+                            chosen_pix, pix_vec,pix_sub_vec,
+                            wl_vec,wl_sub_vec):
+        
+    logR = V_meas - V_bb[chosen_pix]
+    logR /= np.log(10)
+    
+    wl_extract = wl_vec[chosen_pix]
+    
+    # First pass: determine log_eps0
+    A = np.eye(len(chosen_pix))
+#    np1_vec = -C2 / wl_extract * np.ones(len(chosen_pix))
+#    np1_vec = np.array([np1_vec])
+#    A = np.concatenate((A,np1_vec.T),axis=1)
+    b = logR - C2/(wl_extract * Tcal) + C2/(wl_extract * Tguess)
+    
+#    sol_lsq = lsq_linear(A,b)
+#    sol_lsq = np.linalg.inv(np.matmul(A.T,A))
+#    sol_lsq = np.matmul(sol_lsq,A.T)
+#    sol_lsq = np.matmul(sol_lsq,b)
+    
+#    sol_lsq = np.matmul(np.linalg.pinv(A),b)
+#    sol_lsq = np.matmul(np.linalg.inv(A),b)
+    
+#    print(sol_lsq.x,1/sol_lsq.x[-1])
+    
+#    log_eps0 = 0.5 * np.ones(len(chosen_pix))
+#    log_eps0 = np.log(log_eps0)
+#    log_eps0 = np.copy(sol_lsq)
+    log_eps0 = np.copy(b)
+    sol_lsq = np.copy(b)
+    
+    args = [wl_vec[chosen_pix] , logR, Tcal]
+    
+#    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000}
+    min_options = {'gtol':1e-15,'ftol':1e-15,'maxiter':5000}
+    
+    bounds = []
+    for idx in chosen_pix:
+        bounds.append((-1e5,0))
+    
+    sol = minimize(target_alt,x0 = log_eps0, args = args, 
+                   method='TNC', bounds=bounds,options=min_options)
+
+    
+
+
+#    print(sol)
+    Tout = C2 / wl_vec[chosen_pix]
+    Tout /= sol.x - logR + C2/(wl_vec[chosen_pix] * Tcal)
+    std_Tout = np.std(Tout)
+    Tout = np.mean(Tout)
+    
+
+    print(Tout,std_Tout)
+
+    return sol,sol_lsq,Tout
+

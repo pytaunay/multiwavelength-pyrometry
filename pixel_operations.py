@@ -39,7 +39,7 @@ def choose_pixels(pix_vec,bin_method='average'):
     
     ### For each bin, find a pixel
     chosen_pix = []
-    for idx in bins[:-1]:
+    for idx in range(len(bins)):
         # Find the low and high bounds of that slice
         lo = pix_vec[idx]
         hi = pix_vec[idx + pix_slice - 1]

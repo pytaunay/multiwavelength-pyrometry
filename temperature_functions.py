@@ -28,7 +28,7 @@ from scipy.optimize import minimize, lsq_linear, basinhopping
 from spectropyrometer_constants import C2
 from spectropyrometer_constants import pix_slice,max_poly_order,rse_threshold
 
-from goal_function import goal_function
+from goal_function import goal_function, mixed_goal_function
 
 '''
 Function: tukey_fence
@@ -231,6 +231,7 @@ Ouputs:
 '''
 def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):    
     bins = pix_vec[0::pix_slice]
+    wl_sub_vec = wl_vec[pix_vec]
     
     # Minimum and maximum wavelengths
     wl_min = np.min(wl_vec)
@@ -251,13 +252,15 @@ def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):
     Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
     sol = None
     
-    ### Do we have a "good enough" fit?   
-    # If not, we assume first a linear function of emissivity and iterate
-    # from there
-
     # Define the goal function
-    f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
-        
+    filtered_data = splev(wl_sub_vec,data_spl)
+    bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
+    f = lambda pc: mixed_goal_function(pc,logR,
+                                       wl_v0,wl_v1,
+                                       wl_min,wl_max,
+                                       wl_sub_vec,filtered_data,
+                                       bb_eps)
+       
     # Initial values of coefficients
     pc0 = np.zeros(order+1)
     pc0[0] =  0.5     

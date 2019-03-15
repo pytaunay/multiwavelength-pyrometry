@@ -25,8 +25,8 @@ import matplotlib.pyplot as plt
 
 from generate_spectrum import generate_data,wien_approximation
 from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import compute_temperature
-from kfold import compute_kfold_temp
+from temperature_functions import compute_temperature, compute_poly_temperature
+from kfold import order_selection
 
 ### Emissivity functions
 # Tungsten 2000 K emissivity and polynomial of order 1 to fit it
@@ -80,24 +80,52 @@ for f_eps in model_list:
             wl_vec,T,pix_vec,f_eps)
     wl_sub_vec = wl_vec[pix_sub_vec]
     
-#    ### Pixel operations
-#    chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
-#    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+
     
     ### Compute the temperature
 #    Tave,std,rse,refined_fit,sol = compute_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec)
     with np.errstate(invalid='raise'):
-        Tave,std,rse,sol,mse,refined_fit = compute_kfold_temp(data_spl,filtered_data,
+        poly_order = order_selection(data_spl,filtered_data,
                            pix_sub_vec,wl_vec,
                            bb_eps)
 
+        ### Pixel operations
+        chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
+        cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+        
+        Tave,std,rse,sol = compute_poly_temperature(data_spl,cmb_pix,
+                                                    pix_sub_vec,wl_vec,
+                                                    poly_order)
+        refined_fit = False
+        if poly_order > 0:
+            refined_fit = True
+
+#    # Calculate the MSE
+#    Ipred = wien_approximation(wl_sub_vec,Tave,bb_eps)
+#    pwr = 0
+#    eps_vec = np.zeros(len(wl_sub_vec))
+#    for c in sol.x:
+#        eps_vec += c * wl_sub_vec ** pwr
+#        pwr += 1
+#        
+#    Ipred *= eps_vec
+#    Ipred = np.log10(np.abs(Ipred))
+#                
+#    mse = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
+#    
+
+#        
+#    
+#    return Tave,std,rse,sol,mse,refined_fit
+##    print(mse_array,np.nanmean(mse_array,axis=0))
+
     ### Reconstruct data
     bb_reconstructed = wien_approximation(wl_sub_vec,Tave,bb_eps)
-    eps_vec = 10**filtered_data/bb_reconstructed
+    eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
     # Since we get epsilon from the filtered data, "reconstructed_data" will be
     # exactly like "filtered_data"
         
-    reconstructed_data = bb_reconstructed * eps_vec # exactly filtered   
+    reconstructed_data = bb_reconstructed * eps_vec_reconstructed # exactly filtered   
 
     reconstruct_alt = wien_approximation(wl_sub_vec,Tave,bb_eps)
     pwr = 0
@@ -128,7 +156,7 @@ for f_eps in model_list:
     
     # Emissivity
     ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
-    ax[it][1].plot(wl_sub_vec,eps_vec)
+    ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
     
     if not refined_fit:
         # Calculate the average emissivity

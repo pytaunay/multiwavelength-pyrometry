@@ -18,6 +18,7 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
+import warnings
 
 from sklearn.model_selection import KFold
 
@@ -26,14 +27,14 @@ from temperature_functions import compute_temperature,ce_temperature, nce_temper
 from generate_spectrum import wien_approximation
 from spectropyrometer_constants import pix_slice, max_poly_order
 
-def compute_kfold_temp(data_spl,filtered_data,
+def order_selection(data_spl,filtered_data,
                        pix_sub_vec,wl_vec,
                        bb_eps):
     
     wl_sub_vec = wl_vec[pix_sub_vec]
     
     ### Generate a training and testing dataset for the pixels themselves
-    kf = KFold(n_splits=5)
+    kf = KFold(n_splits=max_poly_order+1,shuffle=True)
     mse_all = []
     mse_array = np.zeros((max_poly_order+1,max_poly_order+1))
     
@@ -108,31 +109,16 @@ def compute_kfold_temp(data_spl,filtered_data,
     # Ignore zeros for the mean
     mse_array[mse_array == 0] = np.nan
 
-    mean = np.nanmean(mse_array,axis=0)
+    # Suppress "mean of empty slice" warning
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        mean = np.nanmean(mse_array,axis=0)
+        
     poly_order = np.nanargmin(mean)
-    
-    chosen_pix = choose_pixels(train_pix,bin_method='average')
-    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
-        
-    Tave,std,rse,sol = compute_poly_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec,poly_order)
 
-    # Calculate the MSE
-    Ipred = wien_approximation(wl_sub_vec,Tave,bb_eps)
-    pwr = 0
-    eps_vec = np.zeros(len(wl_sub_vec))
-    for c in sol.x:
-        eps_vec += c * wl_sub_vec ** pwr
-        pwr += 1
-        
-    Ipred *= eps_vec
-    Ipred = np.log10(np.abs(Ipred))
-                
-    mse = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
-    
-    refined_fit = False
-    if poly_order > 0:
-        refined_fit = True
-        
-    
-    return Tave,std,rse,sol,mse,refined_fit
-#    print(mse_array,np.nanmean(mse_array,axis=0))
+    print("Mean of all k-folds:", mean)
+    print("Chosen polynomial order: ", poly_order)
+ 
+    return poly_order
+
+

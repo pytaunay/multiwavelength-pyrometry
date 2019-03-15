@@ -119,7 +119,7 @@ def mixed_goal_function(poly_coeff,logR,
             # Mix goal: 
             # - Rsquared should be close to one
             # - residual square error on temperature should be close to zero
-            ret = (1-rsquared) + Trse
+            ret = np.sqrt((1-rsquared) * Trse)
             
         except:
             ret = 1e5

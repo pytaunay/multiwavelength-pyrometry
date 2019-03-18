@@ -19,7 +19,7 @@
 
 import numpy as np
 
-from numpy.polynomial import Polynomial,polynomial
+from numpy.polynomial import Chebyshev, chebyshev
 
 from scipy.stats import iqr
 
@@ -61,11 +61,11 @@ Inputs:
 def goal_function(poly_coeff,logR,wl_v0,wl_v1,wl_min,wl_max):   
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
-    cheb = Polynomial(poly_coeff,[wl_min,wl_max])
+    cheb = Chebyshev(poly_coeff,[wl_min,wl_max])
     
     # Calculate the emissivities at the corresponding wavelengths
-    eps1 = polynomial.polyval(wl_v1,cheb.coef)
-    eps0 = polynomial.polyval(wl_v0,cheb.coef)
+    eps1 = chebyshev.chebval(wl_v1,cheb.coef)
+    eps0 = chebyshev.chebval(wl_v0,cheb.coef)
 
     # Invert of temperature    
     with np.errstate(invalid='raise'):
@@ -107,11 +107,11 @@ def mixed_goal_function(poly_coeff,logR,
                         bb_eps):   
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
-    cheb = Polynomial(poly_coeff,[wl_min,wl_max])
+    cheb = Chebyshev(poly_coeff,[wl_min,wl_max])
     
     # Calculate the emissivities at the corresponding wavelengths
-    eps1 = polynomial.polyval(wl_v1,cheb.coef)
-    eps0 = polynomial.polyval(wl_v0,cheb.coef)
+    eps1 = chebyshev.chebval(wl_v1,cheb.coef)
+    eps0 = chebyshev.chebval(wl_v0,cheb.coef)
 
     # Find temperature and reconstruct base curve  
     with np.errstate(invalid='raise'):
@@ -131,7 +131,7 @@ def mixed_goal_function(poly_coeff,logR,
         
             # Calculate base curve
             Ipred = wien_approximation(wl_sub_vec,Tave,bb_eps)
-            eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+            eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
             
             Ipred *= eps_vec
             Ipred = np.log10(np.abs(Ipred))

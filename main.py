@@ -19,7 +19,7 @@
 
 
 import numpy as np
-from numpy.polynomial import Polynomial,polynomial
+from numpy.polynomial import Chebyshev,chebyshev
 
 import matplotlib.pyplot as plt
 
@@ -137,10 +137,8 @@ for f_eps in model_list:
 #        pwr += 1
     wl_min = np.min(wl_sub_vec)
     wl_max = np.max(wl_sub_vec)
-#    cheb = Chebyshev(sol.x,[wl_min,wl_max])
-#    eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
-    cheb = Polynomial(sol.x,[wl_min,wl_max])
-    eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+    cheb = Chebyshev(sol.x,[wl_min,wl_max])
+    eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
     
         
     reconstruct_alt *= eps_vec
@@ -175,8 +173,8 @@ for f_eps in model_list:
         print(eps_ave,eps_std)
         
     if refined_fit:
-        eps_poly = Polynomial(sol.x,[np.min(wl_vec),np.max(wl_vec)])
-        eps_val = polynomial.polyval(wl_vec,eps_poly.coef,'-.')
+        eps_poly = Chebyshev(sol.x,[np.min(wl_vec),np.max(wl_vec)])
+        eps_val = chebyshev.chebval(wl_vec,eps_poly.coef,'-.')
         ax[it][1].plot(wl_vec,eps_val)
     
     ax[it][2].plot(wl_sub_vec,reconstructed_data / reconstruct_alt)

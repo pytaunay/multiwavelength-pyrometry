@@ -18,7 +18,8 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
-from numpy.polynomial import Polynomial,polynomial
+from numpy.polynomial import Chebyshev,chebyshev
+
 
 import warnings
 
@@ -111,8 +112,8 @@ def order_selection(data_spl,filtered_data,
             wl_min = np.min(wl_sub_vec)
             wl_max = np.max(wl_sub_vec)
 
-            cheb = Polynomial(sol.x,[wl_min,wl_max])
-            eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+            cheb = Chebyshev(coeff,[wl_min,wl_max])
+            eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
                     
             Ipred *= eps_vec
             Ipred = np.log10(np.abs(Ipred))

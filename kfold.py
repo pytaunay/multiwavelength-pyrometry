@@ -93,8 +93,9 @@ def order_selection(data_spl,filtered_data,
             rsquared = 1e5
         
         # Geometric average of Rsquared and RSE
-        mse_test = np.sqrt(rsquared * rse/100)
-        
+#        mse_test = np.sqrt(np.abs(1-rsquared) * rse/100)
+#        mse_test = 1/2 * (np.abs(1-rsquared) + rse/100)
+        mse_test = rse
         mse_single.append(mse_test)
         
         # All other orders
@@ -130,7 +131,9 @@ def order_selection(data_spl,filtered_data,
                 rse_test = 1e3 * np.abs(rse_test)
             
             # Geometric average of Rsquared and RSE
-            mse_test = np.sqrt(rsquared * rse_test/100)
+#            mse_test = np.sqrt(np.abs(1-rsquared) * rse_test/100)
+#            mse_test = 1/2 * (np.abs(1-rsquared) + rse_test/100)
+            mse_test = rse_test/100
             
             mse_single.append(mse_test)
                 

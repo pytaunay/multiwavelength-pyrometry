@@ -63,7 +63,7 @@ T = 3000
 model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps])
 
 model_list = []
-for it in range(5):
+for it in range(10):
     model_list.append(art_eps)
     
 model_list = np.array(model_list)
@@ -99,6 +99,8 @@ for f_eps in model_list:
         refined_fit = False
         if poly_order > 0:
             refined_fit = True
+            
+        print(sol.message,sol.success)
 
 #    # Calculate the MSE
 #    Ipred = wien_approximation(wl_sub_vec,Tave,bb_eps)

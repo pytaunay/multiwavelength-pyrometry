@@ -63,12 +63,12 @@ T = 3000
 model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps])
 
 model_list = []
-for it in range(10):
+for it in range(5):
     model_list.append(art_eps)
     
 model_list = np.array(model_list)
 
-f,ax = plt.subplots(len(model_list),2)
+f,ax = plt.subplots(len(model_list),3)
 
 it = 0
 
@@ -175,6 +175,7 @@ for f_eps in model_list:
         eps_val = chebyshev.chebval(wl_vec,eps_poly.coef,'-.')
         ax[it][1].plot(wl_vec,eps_val)
     
+    ax[it][2].plot(wl_sub_vec,reconstructed_data / reconstruct_alt)
 
     
     it += 1

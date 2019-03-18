@@ -152,14 +152,15 @@ def mixed_goal_function(poly_coeff,logR,
             if Trse < 0:
                 Trse = 1e3 * np.abs(Trse)
                 
-            sqrt_term = np.abs(1-rsquared) + Trse
+#            sqrt_term = np.abs(1-rsquared) + Trse
+            sqrt_term = np.abs(1-rsquared) * Trse
 #            sqrt_term = Trse
             
             # Mix goal: 
             # - Rsquared should be close to one
             # - residual square error on temperature should be close to zero
-#            ret = np.sqrt(sqrt_term)
-            ret = sqrt_term
+            ret = np.sqrt(sqrt_term)
+#            ret = sqrt_term
             
             
         except:

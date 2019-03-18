@@ -47,7 +47,11 @@ def order_selection(data_spl,filtered_data,
         chosen_pix = choose_pixels(train_pix,bin_method='average')
         cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
         
-        Tave,std,rse,refined_fit,sol,sol_all = compute_temperature(data_spl,cmb_pix,pix_sub_vec,wl_vec)
+        # Find the coefficients for orders greater than 0
+        Tave,std,rse,refined_fit,sol,sol_all = compute_temperature(data_spl,
+                                                                   cmb_pix,
+                                                                   pix_sub_vec,
+                                                                   wl_vec)
         
         ### Testing on all models
         test_pix = pix_sub_vec[test]
@@ -77,13 +81,7 @@ def order_selection(data_spl,filtered_data,
         Ipred = wien_approximation(wl_sub_vec,Tave_test,bb_eps)
         Ipred = np.log10(Ipred)
         
-        # MSE from the fit
-#        mse_test = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
-        # Remove units
-#        mse_test /= filtered_data
-        # Average with the temperature RSE
-#        mse_test *= rse/100
-#        mse_test = np.sqrt(mse_test)
+        # Calculate R2
         rss = np.sum((filtered_data - Ipred)**2)        
         tss = np.sum((filtered_data - np.mean(filtered_data))**2)  
         rsquared = 1 - rss/tss  
@@ -94,8 +92,7 @@ def order_selection(data_spl,filtered_data,
         elif rsquared == 0:
             rsquared = 1e5
         
-#        print(rsquared,rse)
-        
+        # Geometric average of Rsquared and RSE
         mse_test = np.sqrt(rsquared * rse/100)
         
         mse_single.append(mse_test)
@@ -109,21 +106,16 @@ def order_selection(data_spl,filtered_data,
                     wl_max)
         
             Ipred = wien_approximation(wl_sub_vec,Tave_test,bb_eps)
-#            pwr = 0
-#            eps_vec = np.zeros(len(wl_sub_vec))
-#            for c in coeff:
-#                eps_vec += c * wl_sub_vec ** pwr
-#                pwr += 1
             
             wl_min = np.min(wl_sub_vec)
             wl_max = np.max(wl_sub_vec)
             cheb = Chebyshev(coeff,[wl_min,wl_max])
             eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
-            
+                    
             Ipred *= eps_vec
             Ipred = np.log10(np.abs(Ipred))
             
-#            mse_test = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
+            # Calculate R2
             rss = np.sum((filtered_data - Ipred)**2)        
             tss = np.sum((filtered_data - np.mean(filtered_data))**2)  
             rsquared = 1 - rss/tss  
@@ -137,6 +129,7 @@ def order_selection(data_spl,filtered_data,
             if rse_test < 0:
                 rse_test = 1e3 * np.abs(rse_test)
             
+            # Geometric average of Rsquared and RSE
             mse_test = np.sqrt(rsquared * rse_test/100)
             
             mse_single.append(mse_test)

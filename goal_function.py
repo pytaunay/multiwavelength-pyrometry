@@ -20,9 +20,31 @@
 import numpy as np
 
 from numpy.polynomial import Chebyshev, chebyshev
+from scipy.stats import iqr
 
 from spectropyrometer_constants import C2
 from generate_spectrum import wien_approximation
+
+
+def tukey_fence(Tvec):
+    ### Exclude data w/ Tukey fencing
+    T_iqr = iqr(Tvec)
+    T_qua = np.percentile(Tvec,[25,75])
+    
+    min_T = T_qua[0] - 1.25*T_iqr
+    max_T = T_qua[1] + 1.25*T_iqr
+    
+    T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
+    
+    ### Calculate standard deviation, average, standard error
+    std = np.std(T_left)
+    Tave = np.mean(T_left)
+#    rse = std/Tave*100
+    
+    rse = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
+    
+
+    return Tave,std,rse,T_left
 
 '''
 Function: goal_function
@@ -93,15 +115,17 @@ def mixed_goal_function(poly_coeff,logR,
     # Find temperature and reconstruct base curve  
     with np.errstate(invalid='raise'):
         try:
-            invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
+            invT = logR - 5 * np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
 
             # Temperature
             T = 1/invT
             T *= C2 * ( 1/wl_v1 - 1/wl_v0)
 
-            Tstd = np.std(T)
-            Tave = np.mean(T)
-            Trse = Tstd/Tave
+#            Tstd = np.std(T)
+#            Tave = np.mean(T)
+#            Trse = Tstd/Tave
+
+            Tave,Tstd,Trse,_ = tukey_fence(T)
 
         
             # Calculate base curve
@@ -127,12 +151,14 @@ def mixed_goal_function(poly_coeff,logR,
             if Trse < 0:
                 Trse = 1e3 * np.abs(Trse)
                 
-            sqrt_term = np.abs(1-rsquared) * Trse
+#            sqrt_term = np.abs(1-rsquared) + Trse
+            sqrt_term = Trse
             
             # Mix goal: 
             # - Rsquared should be close to one
             # - residual square error on temperature should be close to zero
-            ret = np.sqrt(sqrt_term)
+#            ret = np.sqrt(sqrt_term)
+            ret = sqrt_term
             
             
         except:

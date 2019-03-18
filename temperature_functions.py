@@ -267,8 +267,20 @@ def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):
             
 
     # Minimization
-    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
-    sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+#    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
+#    sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+#    def fconst(coeffs,wl_sub_vec,wl_min,wl_max):
+#        cheb = Chebyshev(coeffs,[wl_min,wl_max])
+#        val = chebyshev.chebval(wl_sub_vec,cheb.coef)       
+#        sgn = np.sign(val)
+#        sgn = np.prod(sgn)
+#        return sgn
+    
+#    cons = ({'type': 'ineq', 'fun': lambda coeff: fconst(coeff,wl_sub_vec,wl_min,wl_max) })
+#    min_options = {'tol':1e-15,'maxiter':5000,'rhobeg':100} # COBYLA
+#    sol = minimize(f,pc0,method='COBYLA',constraints=cons,options=min_options)
+    
+    sol = basinhopping(f,pc0)
     
     # Calculate temperature from solution
     Tave,std,rse = nce_temperature(sol.x,logR,

@@ -64,7 +64,7 @@ model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_e
 
 model_list = []
 for it in range(10):
-    model_list.append(w_eps)
+    model_list.append(art_eps)
     
 model_list = np.array(model_list)
 
@@ -129,10 +129,15 @@ for f_eps in model_list:
 
     reconstruct_alt = wien_approximation(wl_sub_vec,Tave,bb_eps)
     pwr = 0
-    eps_vec = np.zeros(len(wl_sub_vec))
-    for c in sol.x:
-        eps_vec += c * wl_sub_vec ** pwr
-        pwr += 1
+#    eps_vec = np.zeros(len(wl_sub_vec))
+#    for c in sol.x:
+#        eps_vec += c * wl_sub_vec ** pwr
+#        pwr += 1
+    wl_min = np.min(wl_sub_vec)
+    wl_max = np.max(wl_sub_vec)
+    cheb = Chebyshev(sol.x,[wl_min,wl_max])
+    eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
+    
         
     reconstruct_alt *= eps_vec
 #    reconstruct_alt = np.log10(np.abs(reconstruct_alt))    
@@ -162,12 +167,12 @@ for f_eps in model_list:
         # Calculate the average emissivity
         eps_ave = np.average(eps_vec)
         eps_std = np.std(eps_vec)
-        ax[it][1].plot(wl_vec,eps_ave*np.ones(len(wl_vec)))
+        ax[it][1].plot(wl_vec,eps_ave*np.ones(len(wl_vec)),'-.')
         print(eps_ave,eps_std)
         
     if refined_fit:
         eps_poly = Chebyshev(sol.x,[np.min(wl_vec),np.max(wl_vec)])
-        eps_val = chebyshev.chebval(wl_vec,eps_poly.coef)
+        eps_val = chebyshev.chebval(wl_vec,eps_poly.coef,'-.')
         ax[it][1].plot(wl_vec,eps_val)
     
 

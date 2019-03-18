@@ -115,11 +115,25 @@ def mixed_goal_function(poly_coeff,logR,
             rss = np.sum((filtered_data - Ipred)**2)        
             tss = np.sum((filtered_data - np.mean(filtered_data))**2)  
             rsquared = 1 - rss/tss
+            
+            print(rsquared,Trse)
+            
+            # If rsquared is negative or zero, we have a very bad model. Penalize!
+            if rsquared < 0:
+                rsquared = 1e3 * np.abs(rsquared)       
+            elif rsquared == 0:
+                rsquared = 1e5
                 
+            if Trse < 0:
+                Trse = 1e3 * np.abs(Trse)
+                
+            sqrt_term = np.abs(1-rsquared) * Trse
+            
             # Mix goal: 
             # - Rsquared should be close to one
             # - residual square error on temperature should be close to zero
-            ret = np.sqrt((1-rsquared) * Trse)
+            ret = np.sqrt(sqrt_term)
+            
             
         except:
             ret = 1e5

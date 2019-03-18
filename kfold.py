@@ -18,6 +18,8 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
+from numpy.polynomial import Chebyshev, chebyshev
+
 import warnings
 
 from sklearn.model_selection import KFold
@@ -75,7 +77,27 @@ def order_selection(data_spl,filtered_data,
         Ipred = wien_approximation(wl_sub_vec,Tave_test,bb_eps)
         Ipred = np.log10(Ipred)
         
-        mse_test = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
+        # MSE from the fit
+#        mse_test = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
+        # Remove units
+#        mse_test /= filtered_data
+        # Average with the temperature RSE
+#        mse_test *= rse/100
+#        mse_test = np.sqrt(mse_test)
+        rss = np.sum((filtered_data - Ipred)**2)        
+        tss = np.sum((filtered_data - np.mean(filtered_data))**2)  
+        rsquared = 1 - rss/tss  
+        
+        # If rsquared is negative or zero, we have a very bad model. Penalize!
+        if rsquared < 0:
+            rsquared = 1e3 * np.abs(rsquared)       
+        elif rsquared == 0:
+            rsquared = 1e5
+        
+#        print(rsquared,rse)
+        
+        mse_test = np.sqrt(rsquared * rse/100)
+        
         mse_single.append(mse_test)
         
         # All other orders
@@ -87,15 +109,36 @@ def order_selection(data_spl,filtered_data,
                     wl_max)
         
             Ipred = wien_approximation(wl_sub_vec,Tave_test,bb_eps)
-            pwr = 0
-            eps_vec = np.zeros(len(wl_sub_vec))
-            for c in coeff:
-                eps_vec += c * wl_sub_vec ** pwr
-                pwr += 1
+#            pwr = 0
+#            eps_vec = np.zeros(len(wl_sub_vec))
+#            for c in coeff:
+#                eps_vec += c * wl_sub_vec ** pwr
+#                pwr += 1
+            
+            wl_min = np.min(wl_sub_vec)
+            wl_max = np.max(wl_sub_vec)
+            cheb = Chebyshev(coeff,[wl_min,wl_max])
+            eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
+            
             Ipred *= eps_vec
             Ipred = np.log10(np.abs(Ipred))
             
-            mse_test = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
+#            mse_test = 1/len(filtered_data) * np.sum((filtered_data - Ipred)**2)
+            rss = np.sum((filtered_data - Ipred)**2)        
+            tss = np.sum((filtered_data - np.mean(filtered_data))**2)  
+            rsquared = 1 - rss/tss  
+            
+            # If rsquared is negative or zero, we have a very bad model. Penalize!
+            if rsquared < 0:
+                rsquared = 1e3 * np.abs(rsquared)       
+            elif rsquared == 0:
+                rsquared = 1e5
+            
+            if rse_test < 0:
+                rse_test = 1e3 * np.abs(rse_test)
+            
+            mse_test = np.sqrt(rsquared * rse_test/100)
+            
             mse_single.append(mse_test)
                 
         mse_all.append(mse_single)

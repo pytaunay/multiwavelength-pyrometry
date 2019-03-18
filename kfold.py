@@ -61,9 +61,9 @@ def order_selection(data_spl,filtered_data,
         bins = test_pix[0::pix_slice]
         
         # Minimum and maximum wavelengths
-        wl_min = np.min(wl_vec)
-        wl_max = np.max(wl_vec)
-        wl_ave = np.average(wl_vec)
+        wl_min = np.min(wl_sub_vec)
+        wl_max = np.max(wl_sub_vec)
+        wl_ave = np.average(wl_sub_vec)
     
         # Which wavelengths are associated with the pixel combinations?
         wl_v0 = wl_vec[cmb_pix[:,0]]

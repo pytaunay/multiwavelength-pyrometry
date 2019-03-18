@@ -54,7 +54,10 @@ def tukey_fence(Tvec):
     ### Calculate standard deviation, average, standard error
     std = np.std(T_left)
     Tave = np.mean(T_left)
-    rse = std/Tave*100
+#    rse = std/Tave*100
+    
+    rse = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
+    
 
     return Tave,std,rse,T_left
 
@@ -132,6 +135,7 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
     refined_fit = False
     
     bins = pix_vec[0::pix_slice]
+    wl_sub_vec = wl_vec[pix_vec]
     
     # Minimum and maximum wavelengths
     wl_min = np.min(wl_vec)
@@ -167,6 +171,13 @@ def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
         
         # Define the goal function
         f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
+#        filtered_data = splev(wl_sub_vec,data_spl)
+#        bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
+#        f = lambda pc: mixed_goal_function(pc,logR,
+#                                           wl_v0,wl_v1,
+#                                           wl_min,wl_max,
+#                                           wl_sub_vec,filtered_data,
+#                                           bb_eps)
         
         # Initial values of coefficients
         pc0 = np.zeros(nunk)
@@ -234,8 +245,8 @@ def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):
     wl_sub_vec = wl_vec[pix_vec]
     
     # Minimum and maximum wavelengths
-    wl_min = np.min(wl_vec)
-    wl_max = np.max(wl_vec)
+    wl_min = np.min(wl_sub_vec)
+    wl_max = np.max(wl_sub_vec)
     wl_ave = np.average(wl_vec)
 
     # Which wavelengths are associated with the pixel combinations?
@@ -260,15 +271,16 @@ def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):
                                        wl_min,wl_max,
                                        wl_sub_vec,filtered_data,
                                        bb_eps)
-       
+#    f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
+    
     # Initial values of coefficients
     pc0 = np.zeros(order+1)
-    pc0[0] =  0.5     
+    pc0[0] =  1     
             
 
     # Minimization
-#    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
-#    sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
+    sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
 #    def fconst(coeffs,wl_sub_vec,wl_min,wl_max):
 #        cheb = Chebyshev(coeffs,[wl_min,wl_max])
 #        val = chebyshev.chebval(wl_sub_vec,cheb.coef)       
@@ -280,7 +292,7 @@ def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):
 #    min_options = {'tol':1e-15,'maxiter':5000,'rhobeg':100} # COBYLA
 #    sol = minimize(f,pc0,method='COBYLA',constraints=cons,options=min_options)
     
-    sol = basinhopping(f,pc0)
+#    sol = basinhopping(f,pc0)
     
     # Calculate temperature from solution
     Tave,std,rse = nce_temperature(sol.x,logR,

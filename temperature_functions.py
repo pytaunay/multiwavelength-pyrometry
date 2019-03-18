@@ -18,8 +18,7 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
-
-from numpy.polynomial import Chebyshev, chebyshev
+from numpy.polynomial import Polynomial,polynomial
 
 from scipy.interpolate import splev
 from scipy.stats import iqr
@@ -323,11 +322,11 @@ def nce_temperature(poly_coeff,logR,
                     wl_max):  
     
     ### Polynomial representation of the emissivity
-    poly_eps = Chebyshev(poly_coeff,[wl_min,wl_max])
+    poly_eps = Polynomial(poly_coeff,[wl_min,wl_max])
     
     ### Emissivities at the wavelengths of interest
-    eps1 = chebyshev.chebval(wl_v1,poly_eps.coef)
-    eps0 = chebyshev.chebval(wl_v0,poly_eps.coef)
+    eps1 = polynomial.polyval(wl_v1,poly_eps.coef)
+    eps0 = polynomial.polyval(wl_v0,poly_eps.coef)
     
     ### Inverse temperature
     try:

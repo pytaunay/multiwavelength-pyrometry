@@ -19,7 +19,7 @@
 
 
 import numpy as np
-from numpy.polynomial import Chebyshev,chebyshev
+from numpy.polynomial import Polynomial,polynomial
 
 import matplotlib.pyplot as plt
 
@@ -135,8 +135,10 @@ for f_eps in model_list:
 #        pwr += 1
     wl_min = np.min(wl_sub_vec)
     wl_max = np.max(wl_sub_vec)
-    cheb = Chebyshev(sol.x,[wl_min,wl_max])
-    eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
+#    cheb = Chebyshev(sol.x,[wl_min,wl_max])
+#    eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
+    cheb = Polynomial(sol.x,[wl_min,wl_max])
+    eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
     
         
     reconstruct_alt *= eps_vec
@@ -171,42 +173,11 @@ for f_eps in model_list:
         print(eps_ave,eps_std)
         
     if refined_fit:
-        eps_poly = Chebyshev(sol.x,[np.min(wl_vec),np.max(wl_vec)])
-        eps_val = chebyshev.chebval(wl_vec,eps_poly.coef,'-.')
+        eps_poly = Polynomial(sol.x,[np.min(wl_vec),np.max(wl_vec)])
+        eps_val = polynomial.polyval(wl_vec,eps_poly.coef,'-.')
         ax[it][1].plot(wl_vec,eps_val)
     
     ax[it][2].plot(wl_sub_vec,reconstructed_data / reconstruct_alt)
 
     
     it += 1
-#
-#
-#ax[it-1][0].set_xlabel("Wavelength (nm)")
-#ax[it-1][1].set_xlabel("Wavelength (nm)")
-#plt.rcParams.update({'font.size':10})
-#    
-#    
-#    ### Plots            
-
-
-#        
-#    ## Subplots
-#    f, (ax1, ax2) = plt.subplots(1, 2)
-#    # Plot the intensity
-#    ax1.semilogy(lnm_vec,noisy_data)
-#    ax1.semilogy(lnm_vec_sub,reconstructed_data)
-#    #ax1.semilogy(lnm_vec,)
-#    
-#    # Plot the emissivity
-#    ax2.plot(lnm_vec_sub,eps_vec)
-#    ax2.plot(lnm_vec,chosen_eps(lnm_vec,Tave),'--')
-#    
-#    if refined_fit:
-#        eps_poly = np.polynomial.Chebyshev(sol.x,[np.min(lnm_vec),np.max(lnm_vec)])
-#        eps_val = np.polynomial.chebyshev.chebval(lnm_vec,eps_poly.coef)
-#        
-#        ax2.plot(lnm_vec,eps_val,'-.')
-#    
-#    #epsret = eps_piecewise(sol.x,lnm_vec,lnm_binm,lnm_binM)
-#    #ax2.plot(lnm_vec,epsret,'-.')
-

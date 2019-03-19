@@ -18,7 +18,7 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
-from numpy.polynomial import Chebyshev,chebyshev
+from numpy.polynomial import Chebyshev,chebyshev, Polynomial, polynomial
 import spectropyrometer_constants as sc
 
 
@@ -116,38 +116,34 @@ def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):
     wl_binM = wl_vec[bins[1::]]
     wl_binM = np.append(wl_binM,wl_vec[-1])
     
+    ### Calculate intensity ratio
+    logR = calculate_logR(data_spl, wl_v0, wl_v1)
+    
     ### Which order are we using?
     if order == 0:
         # If emissivity is constant, calculate the temperature with the simple model
         sol = None
-        Tave, std, rse = ce_temperature(data_spl,wl_v0,wl_v1)
+        Tave, Tstd, Tmetric = ce_temperature(logR,wl_v0,wl_v1)
     else:    
         # Otherwise, optimization routine on the coefficients of epsilon
         # Define the goal function
-        filtered_data = splev(wl_sub_vec,data_spl)
-        bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
-        f = lambda pc: goal_function(pc, logR,
-                                           wl_v0,wl_v1,
-                                           wl_min,wl_max,
-                                           wl_sub_vec,filtered_data,
-                                           bb_eps)
-    #    f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
+        f = lambda pc: goal_function(pc, logR, wl_v0, wl_v1, wl_min, wl_max)
         
         # Initial values of coefficients
-        pc0 = np.zeros(order+1)
+        pc0 = np.zeros(order)
         pc0[0] =  1     
     
         # Minimization
-        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
-        sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+        min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} # Nelder-Mead
+        sol = minimize(f, pc0, method = 'Nelder-Mead', options = min_options)
     
         # Calculate temperature from solution
-        Tave,std,rse = nce_temperature(sol.x,logR,
+        Tave, Tstd, Tmetric = nce_temperature(sol.x,logR,
                             wl_v0,wl_v1,
                             wl_binm,wl_binM,
                             wl_min,
                             wl_max)
-    return Tave,std,rse,sol 
+    return Tave, Tstd, Tmetric, sol 
       
 
 
@@ -169,12 +165,18 @@ def nce_temperature(poly_coeff,logR,
         - Standard deviation (K)
         - Standard deviation (%)
      '''   
-    ### Polynomial representation of the emissivity
-    poly_eps = Chebyshev(poly_coeff,[wl_min,wl_max])
+    # Build the higher-order coefficients for the polynomial
+    all_coeff = np.array([1])
+    all_coeff = np.append(all_coeff,poly_coeff)
     
-    ### Emissivities at the wavelengths of interest
-    eps1 = chebyshev.chebval(wl_v1,poly_eps.coef)
-    eps0 = chebyshev.chebval(wl_v0,poly_eps.coef)
+    # Create a polynomial representation with the proposed coefficients
+    # Rescaling is done internally by providing the bounds l_min and l_max
+    domain = np.array([wl_min,wl_max])
+    pol =  Polynomial(all_coeff,domain)
+    
+    # Calculate the emissivities at the corresponding wavelengths
+    eps1 = polynomial.polyval(wl_v1,pol.coef)
+    eps0 = polynomial.polyval(wl_v0,pol.coef)
     
     ### Inverse temperature
     try:
@@ -185,8 +187,8 @@ def nce_temperature(poly_coeff,logR,
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave,std,rse,_ = tukey_fence(Tout, method = 'dispersion')
+        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
     except:
-        Tave,std,rse = 1e5 * np.ones(3)
+        Tave, Tstd, Tmetric = 1e5 * np.ones(3)
     
-    return Tave,std,rse    
+    return Tave, Tstd, Tmetric  

@@ -19,15 +19,17 @@
 
 import numpy as np
 from numpy.polynomial import Chebyshev,chebyshev
+import spectropyrometer_constants as sc
+
+
 
 from scipy.interpolate import splev
 
 from scipy.optimize import minimize, lsq_linear, basinhopping
 
-from spectropyrometer_constants import C2
-from spectropyrometer_constants import pix_slice,max_poly_order,rse_threshold
 
-from goal_function import goal_function, mixed_goal_function
+
+from goal_function import goal_function
 
 from statistics import tukey_fence
 
@@ -65,7 +67,7 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
         # Handle edge cases
         # Try/catch to make sure the log spits out correct values
         try:
-            Ttarget = C2 * ( 1/wl1 - 1/wl0) / (logR-5*np.log(wl1/wl0))
+            Ttarget = sc.C2 * ( 1/wl1 - 1/wl0) / (logR-5*np.log(wl1/wl0))
         except:
             continue
         
@@ -196,7 +198,7 @@ def nce_temperature(poly_coeff,logR,
         
         ### Temperature
         Tout = 1/invT
-        Tout *= C2 * ( 1/wl_v1 - 1/wl_v0)
+        Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
         Tave,std,rse,_ = tukey_fence(Tout)

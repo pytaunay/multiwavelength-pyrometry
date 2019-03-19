@@ -24,10 +24,9 @@ from sklearn.model_selection import KFold
 
 import warnings
 import spectropyrometer_constants as sc
-
+import temperature_functions as tf
 
 from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import ce_temperature, nce_temperature
 from generate_spectrum import wien_approximation
 
 from goal_function import goal_function
@@ -67,8 +66,10 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
 
     ### Test multiple models of emissivity until we satisfy the threshold for 
     ### the coefficient of variation
+    logR = tf.calculate_logR(data_spl, wl_v0, wl_v1)
+    
     # 1. Calculate the temperature with the simple model
-    Tave, Tstd, Tmetric, logR = ce_temperature(data_spl, wl_v0, wl_v1)
+    Tave, Tstd, Tmetric = tf.ce_temperature(logR, wl_v0, wl_v1)
     print("Simple temperature model:", Tave, Tstd, Tmetric) 
     
     # 2. Calculate the temperature with a variable emissivity 
@@ -147,14 +148,16 @@ def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
     wl_binM = np.append(wl_binM, wl_vec[-1])
     
     ### Apply tests
+    logR = tf.calculate_logR(data_spl, wl_v0, wl_v1)
+    
     # 1. Constant emissivity
-    Tave, Tstd, Tmetric, logR = ce_temperature(data_spl, wl_v0, wl_v1)
+    Tave, Tstd, Tmetric = tf.ce_temperature(logR, wl_v0, wl_v1)
     
     model_metric.append(Tmetric)
     
     # 2. All other orders
     for lcoeff in model_training:
-        Tave, Tstd, Tmetric = nce_temperature(lcoeff, logR, wl_v0, wl_v1,
+        Tave, Tstd, Tmetric = tf.nce_temperature(lcoeff, logR, wl_v0, wl_v1,
                                               wl_binm, wl_binM,
                                               wl_min, wl_max)
         

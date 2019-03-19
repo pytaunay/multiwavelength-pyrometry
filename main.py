@@ -63,8 +63,8 @@ T = 3000
 model_list = np.array([w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps,w_eps])
 
 model_list = []
-for it in range(10):
-    model_list.append(art_eps)
+for it in range(2):
+    model_list.append(gr_eps)
     
 model_list = np.array(model_list)
 

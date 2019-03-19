@@ -60,6 +60,8 @@ def tukey_fence(Tvec):
 
     return Tave,std,rse,T_left
 
+
+def ce_temperature(data_spl,wl_v0,wl_v1):
 '''
 Function: ce_temperature
 Calculates the temperature based on the averaging of multiple two-temperature
@@ -74,8 +76,7 @@ Ouputs:
     - Natural logarithm of ratio of intensities of two wavelengths. Useful for
     the non-constant emissivity case as well and avoids having to recalculate
     it.
-'''
-def ce_temperature(data_spl,wl_v0,wl_v1):
+'''    
     Tout = []
     logR_array = []
     
@@ -116,114 +117,6 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
 
 
 
-'''
-Function: compute_temperature
-Calculates the temperature
-Inputs:
-    - data_spl Spline representation of the filtered intensity data
-    - cmb_pix Pixels chosen for each pixel bin
-    - pix_vec Overall pixel vector
-    - wl_vec Vector of wavelengths (nm)
-Ouputs:
-    - Predicted temperature from averaging (K)
-    - Standard deviation (K)
-    - Standard deviation (%)
-    - Flag indicating if advanced method was used
-'''
-def compute_temperature(data_spl,cmb_pix,pix_vec,wl_vec):
-    refined_fit = False
-    
-    bins = pix_vec[0::pix_slice]
-    wl_sub_vec = wl_vec[pix_vec]
-    
-    # Minimum and maximum wavelengths
-    wl_min = np.min(wl_vec)
-    wl_max = np.max(wl_vec)
-    wl_ave = np.average(wl_vec)
-
-    # Which wavelengths are associated with the pixel combinations?
-    wl_v0 = wl_vec[cmb_pix[:,0]]
-    wl_v1 = wl_vec[cmb_pix[:,1]] 
-
-
-    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
-    wl_binm = wl_vec[bins]
-    wl_binM = wl_vec[bins[1::]]
-    wl_binM = np.append(wl_binM,wl_vec[-1])
-    
-    ### Calculate the temperature with the simple model
-    Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
-    print("Simple temperature model:",Tave,std,rse) 
-    sol = None
-    
-    ### Do we have a "good enough" fit?   
-    # If not, we assume first a linear function of emissivity and iterate
-    # from there
-    nunk = 2
-    perturb = False
-    sol_all = []
-    while rse > rse_threshold and nunk < max_poly_order:
-        refined_fit = True
-
-        # What is our previous standard error?
-        rse_nm1 = rse
-        
-        # Define the goal function
-        f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
-#        filtered_data = splev(wl_sub_vec,data_spl)
-#        bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
-#        f = lambda pc: mixed_goal_function(pc,logR,
-#                                           wl_v0,wl_v1,
-#                                           wl_min,wl_max,
-#                                           wl_sub_vec,filtered_data,
-#                                           bb_eps)
-        
-        # Initial values of coefficients
-        pc0 = np.zeros(nunk)
-        pc0[0] =  0.5     
-        
-        if perturb:
-            pc0[0] = 0
-            while pc0[0] == 0:
-                pc0[0] = np.random.sample()
-               
-
-        # Minimization
-        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
-#        min_options = {'gtol':1e-15} # BFGS
-#        min_options = {'tol':1e-15,'maxiter':20000} # COBYLA
-#        min_options = {'ftol':1e-15,'eps':1e-2} # SLSQP
-        sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
-#        sol = basinhopping(f,pc0)
-
-        # Calculate temperature from solution
-        Tave,std,rse = nce_temperature(sol.x,logR,
-                    wl_v0,wl_v1,
-                    wl_binm,wl_binM,
-                    wl_min,
-                    wl_max)
-        
-        print("Advanced temperature model:",Tave,std,rse,sol.x,pc0[0])
-        
-#        # If our new standard error is BIGGER than the previous one
-#        # AND we did NOT perturb the initial values already
-#        # THEN we decrease the order of the polynomial and perturb
-#        if rse_nm1 < rse and not perturb:
-#            nunk = nunk-1
-#            perturb = True
-#            if nunk == 1:
-#                nunk = 2
-#        # If we already perturbed the vector and it did not go well, we just
-#        # go ahead and perturb it again
-#        elif rse_nm1 < rse and perturb:
-#            perturb = True
-#        else:
-#            nunk = nunk + 1
-#            perturb = False
-        nunk = nunk + 1
-        sol_all.append(sol.x)
-    
-    return Tave,std,rse,refined_fit,sol,sol_all
    
 '''
 Function: compute_poly_temperature
@@ -341,82 +234,3 @@ def nce_temperature(poly_coeff,logR,
         Tave,std,rse = 1e5 * np.ones(3)
     
     return Tave,std,rse    
-
-# Calibration would be as follows
-# Use a blackbody to calibrate instrument such that a CONSTANT value is used
-# as a scaling factor:
-# V_bb = A / l^5 exp(-C2/l*T_cal)
-# A contains detector characteristics and also C1
-# Assume that "A" does not change with temperature:
-# V_measured = A * eps / l^5 exp(-C2/l*T_true)
-# V_measured / V_bb = eps * exp(-C2/l*T_true) * exp(C2/l*T_cal)
-
-def target_alt(log_eps,args):    
-    wl_sub_vec, logR, Tcal = args
-    
-    Tvec = C2 / wl_sub_vec
-    Tvec /= log_eps - logR + C2/(wl_sub_vec * Tcal)
-    
-#    print(np.mean(Tvec),np.std(Tvec))
-    
-    return np.std(Tvec)
-
-
-def compute_temperature_alt(Tguess,Tcal,V_bb,V_meas,
-                            chosen_pix, pix_vec,pix_sub_vec,
-                            wl_vec,wl_sub_vec):
-        
-    logR = V_meas - V_bb[chosen_pix]
-    logR /= np.log(10)
-    
-    wl_extract = wl_vec[chosen_pix]
-    
-    # First pass: determine log_eps0
-    A = np.eye(len(chosen_pix))
-#    np1_vec = -C2 / wl_extract * np.ones(len(chosen_pix))
-#    np1_vec = np.array([np1_vec])
-#    A = np.concatenate((A,np1_vec.T),axis=1)
-    b = logR - C2/(wl_extract * Tcal) + C2/(wl_extract * Tguess)
-    
-#    sol_lsq = lsq_linear(A,b)
-#    sol_lsq = np.linalg.inv(np.matmul(A.T,A))
-#    sol_lsq = np.matmul(sol_lsq,A.T)
-#    sol_lsq = np.matmul(sol_lsq,b)
-    
-#    sol_lsq = np.matmul(np.linalg.pinv(A),b)
-#    sol_lsq = np.matmul(np.linalg.inv(A),b)
-    
-#    print(sol_lsq.x,1/sol_lsq.x[-1])
-    
-#    log_eps0 = 0.5 * np.ones(len(chosen_pix))
-#    log_eps0 = np.log(log_eps0)
-#    log_eps0 = np.copy(sol_lsq)
-    log_eps0 = np.copy(b)
-    sol_lsq = np.copy(b)
-    
-    args = [wl_vec[chosen_pix] , logR, Tcal]
-    
-#    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000}
-    min_options = {'gtol':1e-15,'ftol':1e-15,'maxiter':5000}
-    
-    bounds = []
-    for idx in chosen_pix:
-        bounds.append((-1e5,0))
-    
-    sol = minimize(target_alt,x0 = log_eps0, args = args, 
-                   method='TNC', bounds=bounds,options=min_options)
-
-    
-
-
-#    print(sol)
-    Tout = C2 / wl_vec[chosen_pix]
-    Tout /= sol.x - logR + C2/(wl_vec[chosen_pix] * Tcal)
-    std_Tout = np.std(Tout)
-    Tout = np.mean(Tout)
-    
-
-    print(Tout,std_Tout)
-
-    return sol,sol_lsq,Tout
-

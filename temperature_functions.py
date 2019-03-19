@@ -168,11 +168,11 @@ def nce_temperature(poly_coeff,logR,
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
     domain = np.array([wl_min,wl_max])
-    pol =  Polynomial(poly_coeff,domain)
+    pol =  Chebyshev(poly_coeff,domain)
     
     # Calculate the emissivities at the corresponding wavelengths
-    eps1 = polynomial.polyval(wl_v1,pol.coef)
-    eps0 = polynomial.polyval(wl_v0,pol.coef)
+    eps1 = chebyshev.chebval(wl_v1,pol.coef)
+    eps0 = chebyshev.chebval(wl_v0,pol.coef)
     
     ### Inverse temperature
     try:

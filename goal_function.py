@@ -20,7 +20,7 @@
 import numpy as np
 import spectropyrometer_constants as sc
 
-from numpy.polynomial import Polynomial, polynomial
+from numpy.polynomial import Polynomial, polynomial, Chebyshev, chebyshev
 from statistics import tukey_fence
 
 def goal_function(poly_coeff, logR, wl_v0, wl_v1, wl_min, wl_max): 
@@ -38,11 +38,11 @@ def goal_function(poly_coeff, logR, wl_v0, wl_v1, wl_min, wl_max):
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
     domain = np.array([wl_min,wl_max])
-    pol =  Polynomial(poly_coeff,domain)
+    pol =  Chebyshev(poly_coeff,domain)
     
     # Calculate the emissivities at the corresponding wavelengths
-    eps1 = polynomial.polyval(wl_v1,pol.coef)
-    eps0 = polynomial.polyval(wl_v0,pol.coef)
+    eps1 = chebyshev.chebval(wl_v1,pol.coef)
+    eps0 = chebyshev.chebval(wl_v0,pol.coef)
 
     # Invert of temperature    
     with np.errstate(invalid='raise'):

@@ -103,8 +103,8 @@ for f_eps in model_list:
     reconstructed_alt = wien_approximation(wl_sub_vec,Tave,bb_eps)
     wl_min = np.min(wl_sub_vec)
     wl_max = np.max(wl_sub_vec)
-    cheb = Polynomial(sol.x,[wl_min,wl_max])
-    eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+    cheb = Chebyshev(sol.x,[wl_min,wl_max])
+    eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
     reconstructed_alt *= eps_vec
 
     ### Plots

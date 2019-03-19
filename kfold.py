@@ -43,6 +43,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     '''
     ### Get the pixels we will use for training
     train_pix = pix_sub_vec[train_idx]
+    wl_sub_vec = wl_vec[pix_sub_vec]
     ### Generate pairs of pixels
     chosen_pix = choose_pixels(train_pix, bin_method='average')
     cmb_pix = generate_combinations(chosen_pix, pix_sub_vec)
@@ -51,8 +52,8 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     bins = pix_sub_vec[0::sc.pix_slice]
     
     # Minimum and maximum wavelengths
-    wl_min = np.min(wl_vec)
-    wl_max = np.max(wl_vec)
+    wl_min = np.min(wl_sub_vec)
+    wl_max = np.max(wl_sub_vec)
 
     # Which wavelengths are associated with the pixel combinations?
     wl_v0 = wl_vec[cmb_pix[:,0]]
@@ -127,6 +128,7 @@ def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
     
     ### Get the pixels we will use for testing
     test_pix = pix_sub_vec[test_idx]
+    wl_sub_vec = wl_vec[pix_sub_vec]
     ### Generate pairs of pixels
     chosen_pix = choose_pixels(test_pix, bin_method='average')
     cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
@@ -135,8 +137,8 @@ def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
     bins = test_pix[0::sc.pix_slice]
     
     # Minimum and maximum wavelengths
-    wl_min = np.min(wl_vec)
-    wl_max = np.max(wl_vec)
+    wl_min = np.min(wl_sub_vec)
+    wl_max = np.max(wl_sub_vec)
 
     # Which wavelengths are associated with the pixel combinations?
     wl_v0 = wl_vec[cmb_pix[:,0]]
@@ -168,11 +170,8 @@ def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
 def order_selection(data_spl,filtered_data,
                        pix_sub_vec,wl_vec,
                        bb_eps):
-    ### Get the wavelengths used as the support for the data
-    wl_sub_vec = wl_vec[pix_sub_vec]
-
     ### Generate a training and testing dataset for the pixels themselves
-    n_splits = 5
+    n_splits = 10
     kf = KFold(n_splits = n_splits, shuffle=True)
     metric_array = np.zeros((n_splits, sc.max_poly_order+1))
     metric_all = []

@@ -21,7 +21,7 @@ import numpy as np
 from numpy.polynomial import Chebyshev,chebyshev
 
 from scipy.interpolate import splev
-from scipy.stats import iqr
+
 from scipy.optimize import minimize, lsq_linear, basinhopping
 
 from spectropyrometer_constants import C2
@@ -29,37 +29,7 @@ from spectropyrometer_constants import pix_slice,max_poly_order,rse_threshold
 
 from goal_function import goal_function, mixed_goal_function
 
-
-def tukey_fence(Tvec):
-    '''
-    Function: tukey_fence
-    Descritpion: Removes outliers using Tukey fencing
-    Inputs:
-        - Tvec: some vector
-    Outputs:
-        - Average of vector w/o outliers
-        - Standard deviation of vector w/o outliers
-        - Standard error of vector w/o outliers (%)
-        - Vector w/o outliers
-    '''      
-    ### Exclude data w/ Tukey fencing
-    T_iqr = iqr(Tvec)
-    T_qua = np.percentile(Tvec,[25,75])
-    
-    min_T = T_qua[0] - 1.25*T_iqr
-    max_T = T_qua[1] + 1.25*T_iqr
-    
-    T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
-    
-    ### Calculate standard deviation, average, standard error
-    Tstd = np.std(T_left)
-    Tave = np.mean(T_left)
-    
-#    Tcv = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
-    Tcv = Tstd/Tave*100
-
-    return Tave, Tstd, Tcv, T_left
-
+from statistics import tukey_fence
 
 def ce_temperature(data_spl,wl_v0,wl_v1):
     '''
@@ -112,12 +82,9 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
     logR_array = np.array(logR_array)    
 
     ### Returns
-    Tave, Tstd, Tcv, _ = tukey_fence(Tout) 
+    Tave, Tstd, Tmetric, _ = tukey_fence(Tout) 
     
-    return Tave, Tstd, Tcv, logR_array
-
-
-
+    return Tave, Tstd, Tmetric, logR_array
    
 
 def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):    

@@ -77,7 +77,7 @@ def ce_temperature(logR, wl_v0, wl_v1):
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
+        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'cv')
         
     except:
         Tave,std,rse = 1e5 * np.ones(3)
@@ -131,7 +131,7 @@ def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):
         
         # Initial values of coefficients
         pc0 = np.zeros(order)
-        pc0[0] =  1     
+        pc0[0] = 0.5     
     
         # Minimization
         min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} # Nelder-Mead
@@ -187,7 +187,7 @@ def nce_temperature(poly_coeff,logR,
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
+        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'cv')
     except:
         Tave, Tstd, Tmetric = 1e5 * np.ones(3)
     

@@ -18,12 +18,10 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
+import spectropyrometer_constants as sc
 
 from numpy.polynomial import Polynomial, polynomial
-
-from spectropyrometer_constants import C2
 from statistics import tukey_fence
-
 
 def goal_function(poly_coeff, logR, wl_v0, wl_v1, wl_min, wl_max): 
     '''
@@ -57,7 +55,7 @@ def goal_function(poly_coeff, logR, wl_v0, wl_v1, wl_min, wl_max):
 
             # Temperature
             T = 1/invT
-            T *= C2 * ( 1/wl_v1 - 1/wl_v0)
+            T *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
 
             # Calculate the coefficient of variation
             Tave, Tstd, Tmetric, _ = tukey_fence(T)

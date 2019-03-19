@@ -19,7 +19,7 @@
 
 
 import numpy as np
-from numpy.polynomial import Chebyshev,chebyshev
+from numpy.polynomial import Chebyshev,chebyshev, Polynomial, polynomial
 
 import matplotlib.pyplot as plt
 
@@ -57,7 +57,7 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 T = 3000
 
 ### Chosen emissivity function
-chosen_eps = gr_eps
+chosen_eps = w_eps
 model_list = []
 for it in range(10):
     model_list.append(chosen_eps)
@@ -70,7 +70,7 @@ f,ax = plt.subplots(len(model_list),2)
 ### Iterate over multiple models
 it = 0
 for f_eps in model_list:
-    print("Model: ",it)
+    print("Model: ", it)
 
     ### Generate some data
     I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = generate_data(
@@ -99,6 +99,14 @@ for f_eps in model_list:
     # exactly like "filtered_data"
     reconstructed_data = bb_reconstructed * eps_vec_reconstructed # exactly filtered   
 
+    # Alternative using the polynomial from optimization
+    reconstructed_alt = wien_approximation(wl_sub_vec,Tave,bb_eps)
+    wl_min = np.min(wl_sub_vec)
+    wl_max = np.max(wl_sub_vec)
+    cheb = Polynomial(sol.x,[wl_min,wl_max])
+    eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+    reconstructed_alt *= eps_vec
+
     ### Plots
     if it == 0:
         ax[it][0].set_title("Intensity")
@@ -107,6 +115,7 @@ for f_eps in model_list:
     # Intensity
     ax[it][0].semilogy(wl_vec,noisy_data)
     ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
+    ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
 
     T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
     error = np.abs((Tave-T)/T)*100
@@ -117,5 +126,13 @@ for f_eps in model_list:
     # Emissivity
     ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
     ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
+
+    if poly_order > 0:
+        eps_poly = Polynomial(sol.x,[wl_min,wl_max])
+        eps_val = polynomial.polyval(wl_vec,eps_poly.coef)
+        ax[it][1].plot(wl_vec, eps_val, '-.')
+    else:
+        eps_ave = np.average(eps_vec)
+        ax[it][1].plot(wl_vec, eps_ave * np.ones(len(wl_vec)), '-.')
 
     it += 1

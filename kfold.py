@@ -96,7 +96,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
                        options=min_options)
 
         # Calculate temperature from solution
-        Tave, Tstd, Tmetric = nce_temperature(sol.x, logR,
+        Tave, Tstd, Tmetric = tf.nce_temperature(sol.x, logR,
                     wl_v0, wl_v1,
                     wl_binm, wl_binM,
                     wl_min,
@@ -172,8 +172,9 @@ def order_selection(data_spl,filtered_data,
     wl_sub_vec = wl_vec[pix_sub_vec]
 
     ### Generate a training and testing dataset for the pixels themselves
-    kf = KFold(n_splits = sc.max_poly_order+1, shuffle=True)
-    metric_array = np.zeros((sc.max_poly_order+1, sc.max_poly_order+1))
+    n_splits = 5
+    kf = KFold(n_splits = n_splits, shuffle=True)
+    metric_array = np.zeros((n_splits, sc.max_poly_order+1))
     metric_all = []
 
     ### For all pairs of training and testing datasets...

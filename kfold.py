@@ -23,13 +23,13 @@ from scipy.optimize import minimize
 from sklearn.model_selection import KFold
 
 import warnings
-
+import spectropyrometer_constants as sc
 
 
 from pixel_operations import choose_pixels, generate_combinations
 from temperature_functions import ce_temperature, nce_temperature
 from generate_spectrum import wien_approximation
-from spectropyrometer_constants import pix_slice, max_poly_order, cv_threshold
+
 from goal_function import goal_function
 
 def training(data_spl, pix_sub_vec, train_idx, wl_vec):
@@ -49,8 +49,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
 
     ### Pixel operations
-    wl_sub_vec = wl_vec[pix_sub_vec]
-    bins = pix_sub_vec[0::pix_slice]
+    bins = pix_sub_vec[0::sc.pix_slice]
     
     # Minimum and maximum wavelengths
     wl_min = np.min(wl_vec)
@@ -69,8 +68,8 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     ### Test multiple models of emissivity until we satisfy the threshold for 
     ### the coefficient of variation
     # 1. Calculate the temperature with the simple model
-    Tave, Tstd, Tcv, logR = ce_temperature(data_spl,wl_v0,wl_v1)
-    print("Simple temperature model:",Tave,Tstd,Tcv) 
+    Tave, Tstd, Tmetric, logR = ce_temperature(data_spl,wl_v0,wl_v1)
+    print("Simple temperature model:", Tave, Tstd, Tmetric) 
     
     # 2. Calculate the temperature with a variable emissivity 
     # Do we have a "good enough" fit?   
@@ -79,8 +78,9 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     sol = None
     nunk = 1 
     
-    sol_all = []
-    while Tcv > cv_threshold and nunk < max_poly_order:
+    model_training = []
+    
+    while Tmetric > sc.cv_threshold and nunk < sc.max_poly_order:
         # Define the goal function
         f = lambda pc: goal_function(pc, logR, wl_v0, wl_v1, wl_min, wl_max)
         
@@ -95,105 +95,72 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
                        options=min_options)
 
         # Calculate temperature from solution
-        Tave,std,rse = nce_temperature(sol.x,logR,
+        Tave, Tstd, Tmetric = nce_temperature(sol.x,logR,
                     wl_v0,wl_v1,
                     wl_binm,wl_binM,
                     wl_min,
                     wl_max)
         
-        print("Advanced temperature model:",Tave,std,rse,sol.x)
+        print("Advanced temperature model:", Tave, Tstd, Tmetric, sol.x)
         
         nunk = nunk + 1
-        sol_all.append(sol.x)
+        model_training.append(sol.x)
     
-    return Tave,std,rse,sol,sol_all
+    return model_training
 
-def testing():
-        ### Testing on all models
-        test_pix = pix_sub_vec[test]
-        chosen_pix = choose_pixels(test_pix,bin_method='average')
-        cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
-
-        bins = test_pix[0::pix_slice]
-        
-        # Minimum and maximum wavelengths
-        wl_min = np.min(wl_sub_vec)
-        wl_max = np.max(wl_sub_vec)
-        wl_ave = np.average(wl_sub_vec)
+def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
+    '''
+    Tests all models on the test pixels.
+    Inputs:
+        - data_spl: spline representation of the filtered intensity
+        - pix_sub_vec: the pixel indices that are used to define the filtered 
+        data
+        - train_idx: the array indices of pix_sub_vec that are used for 
+        training 
+        - wl_vec: the full wavelength vector
+        - model_training: the coefficients for the different models proposed
+    '''
+    ### This array will contain the resulting metric for each model, for a 
+    ### single ensemble of test pixels
+    model_metric = []
     
-        # Which wavelengths are associated with the pixel combinations?
-        wl_v0 = wl_vec[cmb_pix[:,0]]
-        wl_v1 = wl_vec[cmb_pix[:,1]] 
-    
-    
-        # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
-        wl_binm = wl_vec[bins]
-        wl_binM = wl_vec[bins[1::]]
-        wl_binM = np.append(wl_binM,wl_vec[-1])
-        
-        # Order 0
-        Tave_test,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
-        
-        Ipred = wien_approximation(wl_sub_vec,Tave_test,bb_eps)
-        Ipred = np.log10(Ipred)
-        
-        # Calculate R2
-        rss = np.sum((filtered_data - Ipred)**2)        
-        tss = np.sum((filtered_data - np.mean(filtered_data))**2)  
-        rsquared = 1 - rss/tss  
-        
-        # If rsquared is negative or zero, we have a very bad model. Penalize!
-        if rsquared < 0:
-            rsquared = 1e3 * np.abs(rsquared)       
-        elif rsquared == 0:
-            rsquared = 1e5
-        
-        # Geometric average of Rsquared and RSE
-#        mse_test = np.sqrt(np.abs(1-rsquared) * rse/100)
-#        mse_test = 1/2 * (np.abs(1-rsquared) + rse/100)
-        mse_test = rse
-        mse_single.append(mse_test)
-        
-        # All other orders
-        for coeff in sol_all:
-            Tave_test,std_test,rse_test = nce_temperature(coeff,logR,
-                    wl_v0,wl_v1,
-                    wl_binm,wl_binM,
-                    wl_min,
-                    wl_max)
-        
-            Ipred = wien_approximation(wl_sub_vec,Tave_test,bb_eps)
-            
-            wl_min = np.min(wl_sub_vec)
-            wl_max = np.max(wl_sub_vec)
+    ### Get the pixels we will use for testing
+    test_pix = pix_sub_vec[test_idx]
+    ### Generate pairs of pixels
+    chosen_pix = choose_pixels(test_pix,bin_method='average')
+    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
 
-            cheb = Chebyshev(coeff,[wl_min,wl_max])
-            eps_vec = chebyshev.chebval(wl_sub_vec,cheb.coef)
-                    
-            Ipred *= eps_vec
-            Ipred = np.log10(np.abs(Ipred))
-            
-            # Calculate R2
-            rss = np.sum((filtered_data - Ipred)**2)        
-            tss = np.sum((filtered_data - np.mean(filtered_data))**2)  
-            rsquared = 1 - rss/tss  
-            
-            # If rsquared is negative or zero, we have a very bad model. Penalize!
-            if rsquared < 0:
-                rsquared = 1e3 * np.abs(rsquared)       
-            elif rsquared == 0:
-                rsquared = 1e5
-            
-            if rse_test < 0:
-                rse_test = 1e3 * np.abs(rse_test)
-            
-            # Geometric average of Rsquared and RSE
-#            mse_test = np.sqrt(np.abs(1-rsquared) * rse_test/100)
-#            mse_test = 1/2 * (np.abs(1-rsquared) + rse_test/100)
-            mse_test = rse_test/100
-            
-            mse_single.append(mse_test)
+    ### Pixel operations
+    bins = test_pix[0::sc.pix_slice]
+    
+    # Minimum and maximum wavelengths
+    wl_min = np.min(wl_vec)
+    wl_max = np.max(wl_vec)
 
+    # Which wavelengths are associated with the pixel combinations?
+    wl_v0 = wl_vec[cmb_pix[:,0]]
+    wl_v1 = wl_vec[cmb_pix[:,1]] 
+
+    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
+    wl_binm = wl_vec[bins]
+    wl_binM = wl_vec[bins[1::]]
+    wl_binM = np.append(wl_binM, wl_vec[-1])
+    
+    ### Apply tests
+    # 1. Constant emissivity
+    Tave, Tstd, Tmetric, logR = ce_temperature(data_spl, wl_v0, wl_v1)
+    
+    model_metric.append(Tmetric)
+    
+    # 2. All other orders
+    for lcoeff in model_training:
+        Tave, Tstd, Tmetric = nce_temperature(lcoeff, logR, wl_v0, wl_v1,
+                                              wl_binm, wl_binM,
+                                              wl_min, wl_max)
+        
+        model_metric.append(Tmetric)
+
+    return model_metric
 
 def order_selection(data_spl,filtered_data,
                        pix_sub_vec,wl_vec,
@@ -202,32 +169,33 @@ def order_selection(data_spl,filtered_data,
     wl_sub_vec = wl_vec[pix_sub_vec]
 
     ### Generate a training and testing dataset for the pixels themselves
-    kf = KFold(n_splits=max_poly_order+1,shuffle=True)
-    mse_all = []
-    mse_array = np.zeros((max_poly_order+1,max_poly_order+1))
+    kf = KFold(n_splits = sc.max_poly_order+1, shuffle=True)
+    metric_array = np.zeros((sc.max_poly_order+1, sc.max_poly_order+1))
+    metric_all = []
 
     ### For all pairs of training and testing datasets...
-    for train, test in kf.split(pix_sub_vec):
-        mse_single = []
-
+    for train_idx, test_idx in kf.split(pix_sub_vec):
         ### Training
-
+        model_training = training(data_spl, pix_sub_vec, train_idx, wl_vec)
                 
-        mse_all.append(mse_single)
-    
+        ### Testing
+        model_metric = testing(data_spl, pix_sub_vec, test_idx, wl_vec, 
+                               model_training)
         
-    for idx in range(len(mse_all)):
-        nelem = len(mse_all[idx])
-        print(mse_all[idx])
-        mse_array[idx,0:nelem] = np.array(mse_all[idx])
+        metric_all.append(model_metric)
+        
+    for idx in range(len(metric_all)):
+        nelem = len(metric_all[idx])
+        print(metric_all[idx])
+        metric_array[idx,0:nelem] = np.array(metric_array[idx])
 
     # Ignore zeros for the mean
-    mse_array[mse_array == 0] = np.nan
+    metric_array[metric_array == 0] = np.nan
 
     # Suppress "mean of empty slice" warning
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        mean = np.nanmean(mse_array,axis=0)
+        warnings.simplefilter("ignore", category = RuntimeWarning)
+        mean = np.nanmean(metric_array, axis=0)
         
     poly_order = np.nanargmin(mean)
 
@@ -235,5 +203,3 @@ def order_selection(data_spl,filtered_data,
     print("Chosen polynomial order: ", poly_order)
  
     return poly_order
-
-

@@ -86,8 +86,8 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
         f = lambda pc: goal_function(pc, logR, wl_v0, wl_v1, wl_min, wl_max)
         
         # Initial values of coefficients
-        pc0 = np.zeros(nunk)
-        pc0[0] = -5e-4    
+        pc0 = np.zeros(nunk+1)
+        pc0[0] = 0.5    
         
         # Minimization of the coefficient of variation: Nelder-Mead
         min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} 

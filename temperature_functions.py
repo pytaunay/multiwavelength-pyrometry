@@ -130,8 +130,8 @@ def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):
         f = lambda pc: goal_function(pc, logR, wl_v0, wl_v1, wl_min, wl_max)
         
         # Initial values of coefficients
-        pc0 = np.zeros(order)
-        pc0[0] = -5e-4     
+        pc0 = np.zeros(order+1)
+        pc0[0] = 0.5    
     
         # Minimization
         min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} # Nelder-Mead
@@ -165,14 +165,10 @@ def nce_temperature(poly_coeff,logR,
         - Standard deviation (K)
         - Standard deviation (%)
      '''   
-    # Build the higher-order coefficients for the polynomial
-    all_coeff = np.array([1])
-    all_coeff = np.append(all_coeff,poly_coeff)
-    
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
     domain = np.array([wl_min,wl_max])
-    pol =  Polynomial(all_coeff,domain)
+    pol =  Polynomial(poly_coeff,domain)
     
     # Calculate the emissivities at the corresponding wavelengths
     eps1 = polynomial.polyval(wl_v1,pol.coef)

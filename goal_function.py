@@ -34,15 +34,11 @@ def goal_function(poly_coeff, logR, wl_v0, wl_v1, wl_min, wl_max):
         to intensity at wavelength l0
         - wl_v0, wl_v1: Chosen wavelengths vectors (nm)
         - l_min, l_max: minimum and maximum wavelengths for the filtered data (nm)    
-    '''
-    # Build the higher-order coefficients for the polynomial
-    all_coeff = np.array([1])
-    all_coeff = np.append(all_coeff,poly_coeff)
-    
+    '''    
     # Create a polynomial representation with the proposed coefficients
     # Rescaling is done internally by providing the bounds l_min and l_max
     domain = np.array([wl_min,wl_max])
-    pol =  Polynomial(all_coeff,domain)
+    pol =  Polynomial(poly_coeff,domain)
     
     # Calculate the emissivities at the corresponding wavelengths
     eps1 = polynomial.polyval(wl_v1,pol.coef)

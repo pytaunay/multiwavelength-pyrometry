@@ -19,15 +19,18 @@
 
 import numpy as np
 from numpy.polynomial import Chebyshev,chebyshev
+from scipy.optimize import minimize
+from sklearn.model_selection import KFold
 
 import warnings
 
-from sklearn.model_selection import KFold
+
 
 from pixel_operations import choose_pixels, generate_combinations
 from temperature_functions import ce_temperature, nce_temperature
 from generate_spectrum import wien_approximation
 from spectropyrometer_constants import pix_slice, max_poly_order, cv_threshold
+from goal_function import goal_function
 
 def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     '''
@@ -65,44 +68,31 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
 
     ### Test multiple models of emissivity until we satisfy the threshold for 
     ### the coefficient of variation
-#    Tave,std,rse,refined_fit,sol,sol_all = compute_temperature(data_spl,
-#                                                                   cmb_pix,
-#                                                                   pix_sub_vec,
-#                                                                   wl_vec)
-
     # 1. Calculate the temperature with the simple model
-    Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
-    print("Simple temperature model:",Tave,std,rse) 
-    sol = None
+    Tave, Tstd, Tcv, logR = ce_temperature(data_spl,wl_v0,wl_v1)
+    print("Simple temperature model:",Tave,Tstd,Tcv) 
     
-    ### Do we have a "good enough" fit?   
+    # 2. Calculate the temperature with a variable emissivity 
+    # Do we have a "good enough" fit?   
     # If not, we assume first a linear function of emissivity and iterate
     # from there
-    nunk = 2
-    perturb = False
+    sol = None
+    nunk = 1 
+    
     sol_all = []
-    while rse > rse_threshold and nunk < max_poly_order:
-        refined_fit = True
-
-        # What is our previous standard error?
-        rse_nm1 = rse
-        
+    while Tcv > cv_threshold and nunk < max_poly_order:
         # Define the goal function
-        f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
+        f = lambda pc: goal_function(pc, logR, wl_v0, wl_v1, wl_min, wl_max)
         
         # Initial values of coefficients
         pc0 = np.zeros(nunk)
         pc0[0] =  0.5     
         
-        if perturb:
-            pc0[0] = 0
-            while pc0[0] == 0:
-                pc0[0] = np.random.sample()
-               
-
-        # Minimization
-        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
-        sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+        # Minimization of the coefficient of variation: Nelder-Mead
+        min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} 
+        sol = minimize(f, pc0,
+                       method='Nelder-Mead',
+                       options=min_options)
 
         # Calculate temperature from solution
         Tave,std,rse = nce_temperature(sol.x,logR,
@@ -111,12 +101,12 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
                     wl_min,
                     wl_max)
         
-        print("Advanced temperature model:",Tave,std,rse,sol.x,pc0[0])
+        print("Advanced temperature model:",Tave,std,rse,sol.x)
         
         nunk = nunk + 1
         sol_all.append(sol.x)
     
-    return Tave,std,rse,refined_fit,sol,sol_all
+    return Tave,std,rse,sol,sol_all
 
 def testing():
         ### Testing on all models

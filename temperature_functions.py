@@ -131,7 +131,7 @@ def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):
         
         # Initial values of coefficients
         pc0 = np.zeros(order)
-        pc0[0] = 0.5     
+        pc0[0] = -5e-4     
     
         # Minimization
         min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} # Nelder-Mead

@@ -29,18 +29,19 @@ from spectropyrometer_constants import pix_slice,max_poly_order,rse_threshold
 
 from goal_function import goal_function, mixed_goal_function
 
-'''
-Function: tukey_fence
-Descritpion: Removes outliers using Tukey fencing
-Inputs:
-    - Tvec: some vector
-Outputs:
-    - Average of vector w/o outliers
-    - Standard deviation of vector w/o outliers
-    - Standard error of vector w/o outliers (%)
-    - Vector w/o outliers
-'''      
+
 def tukey_fence(Tvec):
+    '''
+    Function: tukey_fence
+    Descritpion: Removes outliers using Tukey fencing
+    Inputs:
+        - Tvec: some vector
+    Outputs:
+        - Average of vector w/o outliers
+        - Standard deviation of vector w/o outliers
+        - Standard error of vector w/o outliers (%)
+        - Vector w/o outliers
+    '''      
     ### Exclude data w/ Tukey fencing
     T_iqr = iqr(Tvec)
     T_qua = np.percentile(Tvec,[25,75])
@@ -62,21 +63,21 @@ def tukey_fence(Tvec):
 
 
 def ce_temperature(data_spl,wl_v0,wl_v1):
-'''
-Function: ce_temperature
-Calculates the temperature based on the averaging of multiple two-temperature
-predictions and Constant Emissivity (CE)
-Inputs:
-    - data_spl Spline representation of the filtered intensity data
-    - wl_v0, wl_v1 Vector of wavelengths chosen
-Ouputs:
-    - Predicted temperature from averaging (K)
-    - Standard deviation (K)
-    - Standard deviation (%)
-    - Natural logarithm of ratio of intensities of two wavelengths. Useful for
-    the non-constant emissivity case as well and avoids having to recalculate
-    it.
-'''    
+    '''
+    Function: ce_temperature
+    Calculates the temperature based on the averaging of multiple two-temperature
+    predictions and Constant Emissivity (CE)
+    Inputs:
+        - data_spl Spline representation of the filtered intensity data
+        - wl_v0, wl_v1 Vector of wavelengths chosen
+    Ouputs:
+        - Predicted temperature from averaging (K)
+        - Standard deviation (K)
+        - Standard deviation (%)
+        - Natural logarithm of ratio of intensities of two wavelengths. Useful for
+        the non-constant emissivity case as well and avoids having to recalculate
+        it.
+    '''    
     Tout = []
     logR_array = []
     
@@ -118,21 +119,22 @@ Ouputs:
 
 
    
-'''
-Function: compute_poly_temperature
-Calculates the temperature based on the assumption of a polynomial order
-Inputs:
-    - data_spl Spline representation of the filtered intensity data
-    - cmb_pix Pixels chosen for each pixel bin
-    - pix_vec Overall pixel vector
-    - wl_vec Vector of wavelengths (nm)
-Ouputs:
-    - Predicted temperature from averaging (K)
-    - Standard deviation (K)
-    - Standard deviation (%)
-    - Flag indicating if advanced method was used
-'''
+
 def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):    
+    '''
+    Function: compute_poly_temperature
+    Calculates the temperature based on the assumption of a polynomial order
+    Inputs:
+        - data_spl Spline representation of the filtered intensity data
+        - cmb_pix Pixels chosen for each pixel bin
+        - pix_vec Overall pixel vector
+        - wl_vec Vector of wavelengths (nm)
+    Ouputs:
+        - Predicted temperature from averaging (K)
+        - Standard deviation (K)
+        - Standard deviation (%)
+        - Flag indicating if advanced method was used
+    '''
     bins = pix_vec[0::pix_slice]
     wl_sub_vec = wl_vec[pix_vec]
     
@@ -195,24 +197,24 @@ def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):
     return Tave,std,rse,sol    
 
 
-'''
-Function: nce_temperature
-Calculates the temperature based on a Non-Constant Emissivity (NCE).
-The emissivity is modeled with a Chebyshev polynomial of order N where N 
-is determined by a separate routine
-Inputs:
-    - 
-Outputs:
-    - Predicted temperature from averaging (K)
-    - Standard deviation (K)
-    - Standard deviation (%)
- '''
+
 def nce_temperature(poly_coeff,logR,
                     wl_v0,wl_v1,
                     wl_binm,wl_binM,
                     wl_min,
                     wl_max):  
-    
+    '''
+    Function: nce_temperature
+    Calculates the temperature based on a Non-Constant Emissivity (NCE).
+    The emissivity is modeled with a Chebyshev polynomial of order N where N 
+    is determined by a separate routine
+    Inputs:
+        - 
+    Outputs:
+        - Predicted temperature from averaging (K)
+        - Standard deviation (K)
+        - Standard deviation (%)
+     '''   
     ### Polynomial representation of the emissivity
     poly_eps = Chebyshev(poly_coeff,[wl_min,wl_max])
     

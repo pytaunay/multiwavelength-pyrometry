@@ -25,7 +25,7 @@ C2 = 1.4384e7 # nm K
 
 pix_slice = 100 # Total number of pixels to take into a slice
 max_poly_order = 4 # Maximum polynomial order to consider
-rse_threshold = 0.3 # Standard error threshold (%) before we consider the fit 
+cv_threshold = 0.3 # Coefficient of variation (%) before we consider the fit 
 # to be "bad"
 
 # Window length for the moving average

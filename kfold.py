@@ -20,45 +20,110 @@
 import numpy as np
 from numpy.polynomial import Chebyshev,chebyshev
 
-
 import warnings
 
 from sklearn.model_selection import KFold
 
 from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import compute_temperature,ce_temperature, nce_temperature, compute_poly_temperature
+from temperature_functions import ce_temperature, nce_temperature
 from generate_spectrum import wien_approximation
-from spectropyrometer_constants import pix_slice, max_poly_order
+from spectropyrometer_constants import pix_slice, max_poly_order, cv_threshold
 
-def order_selection(data_spl,filtered_data,
-                       pix_sub_vec,wl_vec,
-                       bb_eps):
-    
+def training(data_spl, pix_sub_vec, train_idx, wl_vec):
+    '''
+    Inputs:
+        - data_spl: spline representation of the filtered intensity
+        - pix_sub_vec: the pixel indices that are used to define the filtered 
+        data
+        - train_idx: the array indices of pix_sub_vec that are used for 
+        training 
+        - wl_vec: the full wavelength vector
+    '''
+    ### Get the pixels we will use for training
+    train_pix = pix_sub_vec[train_idx]
+    ### Generate pairs of pixels
+    chosen_pix = choose_pixels(train_pix,bin_method='average')
+    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+
+    ### Pixel operations
     wl_sub_vec = wl_vec[pix_sub_vec]
+    bins = pix_sub_vec[0::pix_slice]
     
-    ### Generate a training and testing dataset for the pixels themselves
-    kf = KFold(n_splits=max_poly_order+1,shuffle=True)
-    mse_all = []
-    mse_array = np.zeros((max_poly_order+1,max_poly_order+1))
+    # Minimum and maximum wavelengths
+    wl_min = np.min(wl_vec)
+    wl_max = np.max(wl_vec)
+
+    # Which wavelengths are associated with the pixel combinations?
+    wl_v0 = wl_vec[cmb_pix[:,0]]
+    wl_v1 = wl_vec[cmb_pix[:,1]] 
+
+    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
+    wl_binm = wl_vec[bins]
+    wl_binM = wl_vec[bins[1::]]
+    wl_binM = np.append(wl_binM,wl_vec[-1])
     
-    for train, test in kf.split(pix_sub_vec):
-        mse_single = []
-        ### Training
-        train_pix = pix_sub_vec[train]
-        chosen_pix = choose_pixels(train_pix,bin_method='average')
-        cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+
+    ### Test multiple models of emissivity until we satisfy the threshold for 
+    ### the coefficient of variation
+#    Tave,std,rse,refined_fit,sol,sol_all = compute_temperature(data_spl,
+#                                                                   cmb_pix,
+#                                                                   pix_sub_vec,
+#                                                                   wl_vec)
+
+    # 1. Calculate the temperature with the simple model
+    Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
+    print("Simple temperature model:",Tave,std,rse) 
+    sol = None
+    
+    ### Do we have a "good enough" fit?   
+    # If not, we assume first a linear function of emissivity and iterate
+    # from there
+    nunk = 2
+    perturb = False
+    sol_all = []
+    while rse > rse_threshold and nunk < max_poly_order:
+        refined_fit = True
+
+        # What is our previous standard error?
+        rse_nm1 = rse
         
-        # Find the coefficients for orders greater than 0
-        Tave,std,rse,refined_fit,sol,sol_all = compute_temperature(data_spl,
-                                                                   cmb_pix,
-                                                                   pix_sub_vec,
-                                                                   wl_vec)
+        # Define the goal function
+        f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
         
+        # Initial values of coefficients
+        pc0 = np.zeros(nunk)
+        pc0[0] =  0.5     
+        
+        if perturb:
+            pc0[0] = 0
+            while pc0[0] == 0:
+                pc0[0] = np.random.sample()
+               
+
+        # Minimization
+        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
+        sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+
+        # Calculate temperature from solution
+        Tave,std,rse = nce_temperature(sol.x,logR,
+                    wl_v0,wl_v1,
+                    wl_binm,wl_binM,
+                    wl_min,
+                    wl_max)
+        
+        print("Advanced temperature model:",Tave,std,rse,sol.x,pc0[0])
+        
+        nunk = nunk + 1
+        sol_all.append(sol.x)
+    
+    return Tave,std,rse,refined_fit,sol,sol_all
+
+def testing():
         ### Testing on all models
         test_pix = pix_sub_vec[test]
         chosen_pix = choose_pixels(test_pix,bin_method='average')
         cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
-        
+
         bins = test_pix[0::pix_slice]
         
         # Minimum and maximum wavelengths
@@ -138,6 +203,25 @@ def order_selection(data_spl,filtered_data,
             mse_test = rse_test/100
             
             mse_single.append(mse_test)
+
+
+def order_selection(data_spl,filtered_data,
+                       pix_sub_vec,wl_vec,
+                       bb_eps):
+    ### Get the wavelengths used as the support for the data
+    wl_sub_vec = wl_vec[pix_sub_vec]
+
+    ### Generate a training and testing dataset for the pixels themselves
+    kf = KFold(n_splits=max_poly_order+1,shuffle=True)
+    mse_all = []
+    mse_array = np.zeros((max_poly_order+1,max_poly_order+1))
+
+    ### For all pairs of training and testing datasets...
+    for train, test in kf.split(pix_sub_vec):
+        mse_single = []
+
+        ### Training
+
                 
         mse_all.append(mse_single)
     

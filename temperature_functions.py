@@ -25,21 +25,36 @@ import spectropyrometer_constants as sc
 
 from scipy.interpolate import splev
 
-from scipy.optimize import minimize, lsq_linear, basinhopping
-
+from scipy.optimize import minimize
 
 
 from goal_function import goal_function
 
 from statistics import tukey_fence
 
-def ce_temperature(data_spl,wl_v0,wl_v1):
+def calculate_logR(data_spl, wl_v0, wl_v1):
+    logR_array = []
+    for wl0, wl1 in zip(wl_v0, wl_v1):                
+        # Corresponding data from the filtered data
+        res0 = 10**splev(wl0, data_spl)
+        res1 = 10**splev(wl1, data_spl)
+      
+        # Ratio of intensities
+        R = res0/res1
+        logR = np.log(R)
+        logR_array.append(logR)
+        
+    logR_array = np.array(logR_array)
+    return logR_array
+
+def ce_temperature(logR, wl_v0, wl_v1):
     '''
     Function: ce_temperature
-    Calculates the temperature based on the averaging of multiple two-temperature
-    predictions and Constant Emissivity (CE)
+    Calculates the temperature based on the averaging of multiple 
+    two-wavelength predictions and Constant Emissivity (CE)
     Inputs:
-        - data_spl Spline representation of the filtered intensity data
+        - logR The logarithm of the intensity ratio I_0 / I_1, computed 
+        upstream
         - wl_v0, wl_v1 Vector of wavelengths chosen
     Ouputs:
         - Predicted temperature from averaging (K)
@@ -50,121 +65,90 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
         it.
     '''    
     Tout = []
-    logR_array = []
     
     ### Standard computation
     # For each pair of wavelengths (wl0,wl1), calculate constant emissivity
     # temperature 
-    for wl0, wl1 in zip(wl_v0, wl_v1):                
-        # Corresponding data from the filtered data
-        res0 = 10**splev(wl0, data_spl)
-        res1 = 10**splev(wl1, data_spl)
-      
-        # Ratio of intensities
-        R = res0/res1
-        logR = np.log(R)
+    try:
+        invT = logR - 5 *np.log(wl_v1/wl_v0)
         
-        # Handle edge cases
-        # Try/catch to make sure the log spits out correct values
-        try:
-            Ttarget = sc.C2 * ( 1/wl1 - 1/wl0) / (logR-5*np.log(wl1/wl0))
-        except:
-            continue
-        
-        # Skip if negative or NaN
-        if Ttarget < 0 or np.isnan(Ttarget):
-            continue
-        
-        # Build vector
-        Tout.append(Ttarget)
-        logR_array.append(logR)
+        ### Temperature
+        Tout = 1/invT
+        Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
-    ### Convert to numpy arrays
-    Tout = np.array(Tout)      
-    logR_array = np.array(logR_array)    
-
-    ### Returns
-    Tave, Tstd, Tmetric, _ = tukey_fence(Tout) 
+        ### Returns
+        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
+        
+    except:
+        Tave,std,rse = 1e5 * np.ones(3)
     
-    return Tave, Tstd, Tmetric, logR_array
+    return Tave, Tstd, Tmetric   
    
 
-def compute_poly_temperature(data_spl,cmb_pix,pix_vec,wl_vec,order):    
-    return 0
-#    '''
-#    Function: compute_poly_temperature
-#    Calculates the temperature based on the assumption of a polynomial order
-#    Inputs:
-#        - data_spl Spline representation of the filtered intensity data
-#        - cmb_pix Pixels chosen for each pixel bin
-#        - pix_vec Overall pixel vector
-#        - wl_vec Vector of wavelengths (nm)
-#    Ouputs:
-#        - Predicted temperature from averaging (K)
-#        - Standard deviation (K)
-#        - Standard deviation (%)
-#        - Flag indicating if advanced method was used
-#    '''
-#    bins = pix_vec[0::pix_slice]
-#    wl_sub_vec = wl_vec[pix_vec]
-#    
-#    # Minimum and maximum wavelengths
-#    wl_min = np.min(wl_sub_vec)
-#    wl_max = np.max(wl_sub_vec)
-#    wl_ave = np.average(wl_vec)
-#
-#    # Which wavelengths are associated with the pixel combinations?
-#    wl_v0 = wl_vec[cmb_pix[:,0]]
-#    wl_v1 = wl_vec[cmb_pix[:,1]] 
-#
-#
-#    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
-#    wl_binm = wl_vec[bins]
-#    wl_binM = wl_vec[bins[1::]]
-#    wl_binM = np.append(wl_binM,wl_vec[-1])
-#    
-#    ### Calculate the temperature with the simple model
-#    Tave,std,rse,logR = ce_temperature(data_spl,wl_v0,wl_v1)
-#    sol = None
-#    
-#    # Define the goal function
-#    filtered_data = splev(wl_sub_vec,data_spl)
-#    bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
-#    f = lambda pc: mixed_goal_function(pc,logR,
-#                                       wl_v0,wl_v1,
-#                                       wl_min,wl_max,
-#                                       wl_sub_vec,filtered_data,
-#                                       bb_eps)
-##    f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
-#    
-#    # Initial values of coefficients
-#    pc0 = np.zeros(order+1)
-#    pc0[0] =  1     
-#
-#    # Minimization
-#    min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
-#    sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
-##    def fconst(coeffs,wl_sub_vec,wl_min,wl_max):
-##        cheb = Chebyshev(coeffs,[wl_min,wl_max])
-##        val = chebyshev.chebval(wl_sub_vec,cheb.coef)       
-##        sgn = np.sign(val)
-##        sgn = np.prod(sgn)
-##        return sgn
-#    
-##    cons = ({'type': 'ineq', 'fun': lambda coeff: fconst(coeff,wl_sub_vec,wl_min,wl_max) })
-##    min_options = {'tol':1e-15,'maxiter':5000,'rhobeg':100} # COBYLA
-##    sol = minimize(f,pc0,method='COBYLA',constraints=cons,options=min_options)
-#    
-##    sol = basinhopping(f,pc0)
-#    
-#    # Calculate temperature from solution
-#    Tave,std,rse = nce_temperature(sol.x,logR,
-#                        wl_v0,wl_v1,
-#                        wl_binm,wl_binM,
-#                        wl_min,
-#                        wl_max)
-#    
-#    return Tave,std,rse,sol    
+def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):    
+    '''
+    Function: optimum_temperature
+    Calculates the temperature based on the assumption of a polynomial order
+    Inputs:
+        - data_spl Spline representation of the filtered intensity data
+        - cmb_pix Pixels chosen for each pixel bin
+        - pix_vec Overall pixel vector
+        - wl_vec Vector of wavelengths (nm)
+    Ouputs:
+        - Predicted temperature from averaging (K)
+        - Standard deviation (K)
+        - Standard deviation (%)
+        - Flag indicating if advanced method was used
+    '''
+    bins = pix_vec[0::sc.pix_slice]
+    wl_sub_vec = wl_vec[pix_vec]
+    
+    # Minimum and maximum wavelengths
+    wl_min = np.min(wl_sub_vec)
+    wl_max = np.max(wl_sub_vec)
+
+    # Which wavelengths are associated with the pixel combinations?
+    wl_v0 = wl_vec[cmb_pix[:,0]]
+    wl_v1 = wl_vec[cmb_pix[:,1]] 
+
+    # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
+    wl_binm = wl_vec[bins]
+    wl_binM = wl_vec[bins[1::]]
+    wl_binM = np.append(wl_binM,wl_vec[-1])
+    
+    ### Which order are we using?
+    if order == 0:
+        # If emissivity is constant, calculate the temperature with the simple model
+        sol = None
+        Tave, std, rse = ce_temperature(data_spl,wl_v0,wl_v1)
+    else:    
+        # Otherwise, optimization routine on the coefficients of epsilon
+        # Define the goal function
+        filtered_data = splev(wl_sub_vec,data_spl)
+        bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
+        f = lambda pc: goal_function(pc, logR,
+                                           wl_v0,wl_v1,
+                                           wl_min,wl_max,
+                                           wl_sub_vec,filtered_data,
+                                           bb_eps)
+    #    f = lambda pc: goal_function(pc,logR,wl_v0,wl_v1,wl_min,wl_max)
+        
+        # Initial values of coefficients
+        pc0 = np.zeros(order+1)
+        pc0[0] =  1     
+    
+        # Minimization
+        min_options = {'xatol':1e-15,'fatol':1e-15,'maxfev':5000} # Nelder-Mead
+        sol = minimize(f,pc0,method='Nelder-Mead',options=min_options)
+    
+        # Calculate temperature from solution
+        Tave,std,rse = nce_temperature(sol.x,logR,
+                            wl_v0,wl_v1,
+                            wl_binm,wl_binM,
+                            wl_min,
+                            wl_max)
+    return Tave,std,rse,sol 
+      
 
 
 
@@ -201,7 +185,7 @@ def nce_temperature(poly_coeff,logR,
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave,std,rse,_ = tukey_fence(Tout)
+        Tave,std,rse,_ = tukey_fence(Tout, method = 'dispersion')
     except:
         Tave,std,rse = 1e5 * np.ones(3)
     

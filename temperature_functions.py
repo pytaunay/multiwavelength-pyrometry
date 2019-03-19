@@ -52,14 +52,13 @@ def tukey_fence(Tvec):
     T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
     
     ### Calculate standard deviation, average, standard error
-    std = np.std(T_left)
+    Tstd = np.std(T_left)
     Tave = np.mean(T_left)
-#    rse = std/Tave*100
     
-    rse = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
-    
+#    Tcv = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
+    Tcv = Tstd/Tave*100
 
-    return Tave,std,rse,T_left
+    return Tave, Tstd, Tcv, T_left
 
 
 def ce_temperature(data_spl,wl_v0,wl_v1):
@@ -84,18 +83,19 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
     ### Standard computation
     # For each pair of wavelengths (wl0,wl1), calculate constant emissivity
     # temperature 
-    for wl0,wl1 in zip(wl_v0,wl_v1):                
+    for wl0, wl1 in zip(wl_v0, wl_v1):                
         # Corresponding data from the filtered data
-        res0 = 10**splev(wl0,data_spl)
-        res1 = 10**splev(wl1,data_spl)
+        res0 = 10**splev(wl0, data_spl)
+        res1 = 10**splev(wl1, data_spl)
       
         # Ratio of intensities
         R = res0/res1
+        logR = np.log(R)
         
         # Handle edge cases
         # Try/catch to make sure the log spits out correct values
         try:
-            Ttarget = C2 * ( 1/wl1 - 1/wl0) / (np.log(R)-5*np.log(wl1/wl0))
+            Ttarget = C2 * ( 1/wl1 - 1/wl0) / (logR-5*np.log(wl1/wl0))
         except:
             continue
         
@@ -105,16 +105,16 @@ def ce_temperature(data_spl,wl_v0,wl_v1):
         
         # Build vector
         Tout.append(Ttarget)
-        logR_array.append(np.log(R))
+        logR_array.append(logR)
     
     ### Convert to numpy arrays
     Tout = np.array(Tout)      
     logR_array = np.array(logR_array)    
 
     ### Returns
-    Tave,std,rse,_ = tukey_fence(Tout) 
+    Tave, Tstd, Tcv, _ = tukey_fence(Tout) 
     
-    return Tave,std,rse,logR_array
+    return Tave, Tstd, Tcv, logR_array
 
 
 

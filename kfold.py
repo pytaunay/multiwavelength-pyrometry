@@ -45,8 +45,8 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     ### Get the pixels we will use for training
     train_pix = pix_sub_vec[train_idx]
     ### Generate pairs of pixels
-    chosen_pix = choose_pixels(train_pix,bin_method='average')
-    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+    chosen_pix = choose_pixels(train_pix, bin_method='average')
+    cmb_pix = generate_combinations(chosen_pix, pix_sub_vec)
 
     ### Pixel operations
     bins = pix_sub_vec[0::sc.pix_slice]
@@ -62,13 +62,13 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
     wl_binm = wl_vec[bins]
     wl_binM = wl_vec[bins[1::]]
-    wl_binM = np.append(wl_binM,wl_vec[-1])
+    wl_binM = np.append(wl_binM, wl_vec[-1])
     
 
     ### Test multiple models of emissivity until we satisfy the threshold for 
     ### the coefficient of variation
     # 1. Calculate the temperature with the simple model
-    Tave, Tstd, Tmetric, logR = ce_temperature(data_spl,wl_v0,wl_v1)
+    Tave, Tstd, Tmetric, logR = ce_temperature(data_spl, wl_v0, wl_v1)
     print("Simple temperature model:", Tave, Tstd, Tmetric) 
     
     # 2. Calculate the temperature with a variable emissivity 
@@ -95,9 +95,9 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
                        options=min_options)
 
         # Calculate temperature from solution
-        Tave, Tstd, Tmetric = nce_temperature(sol.x,logR,
-                    wl_v0,wl_v1,
-                    wl_binm,wl_binM,
+        Tave, Tstd, Tmetric = nce_temperature(sol.x, logR,
+                    wl_v0, wl_v1,
+                    wl_binm, wl_binM,
                     wl_min,
                     wl_max)
         
@@ -127,7 +127,7 @@ def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
     ### Get the pixels we will use for testing
     test_pix = pix_sub_vec[test_idx]
     ### Generate pairs of pixels
-    chosen_pix = choose_pixels(test_pix,bin_method='average')
+    chosen_pix = choose_pixels(test_pix, bin_method='average')
     cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
 
     ### Pixel operations
@@ -187,7 +187,7 @@ def order_selection(data_spl,filtered_data,
     for idx in range(len(metric_all)):
         nelem = len(metric_all[idx])
         print(metric_all[idx])
-        metric_array[idx,0:nelem] = np.array(metric_array[idx])
+        metric_array[idx,0:nelem] = np.array(metric_all[idx])
 
     # Ignore zeros for the mean
     metric_array[metric_array == 0] = np.nan

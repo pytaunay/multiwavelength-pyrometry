@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 
 from generate_spectrum import generate_data,wien_approximation
 from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import compute_poly_temperature
+from temperature_functions import optimum_temperature
 from kfold import order_selection
 
 ### Emissivity functions
@@ -59,7 +59,7 @@ T = 3000
 ### Chosen emissivity function
 chosen_eps = gr_eps
 model_list = []
-for it in range(2):
+for it in range(10):
     model_list.append(chosen_eps)
 
 model_list = np.array(model_list)
@@ -77,48 +77,45 @@ for f_eps in model_list:
             wl_vec,T,pix_vec,f_eps)
     wl_sub_vec = wl_vec[pix_sub_vec]
 
-    ### Choose the order of the emissivity 
+    ### Choose the order of the emissivity w/ k-fold
     poly_order = order_selection(data_spl,filtered_data,
                        pix_sub_vec,wl_vec,
                        bb_eps)
+    
+    ### Calculate the temperature using the whole dataset
+    # Pixel operations
+    chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
+    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
 
-#    ### Pixel operations
-#    chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
-#    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
-#
-#    Tave,std,rse,sol = compute_poly_temperature(data_spl,cmb_pix,
-#                                                pix_sub_vec,wl_vec,
-#                                                poly_order)
-#    refined_fit = False
-#    if poly_order > 0:
-#        refined_fit = True
-#
-#    print(sol.message,sol.success)
-#
-#    ### Reconstruct data
-#    bb_reconstructed = wien_approximation(wl_sub_vec,Tave,bb_eps)
-#    eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
-#    # Since we get epsilon from the filtered data, "reconstructed_data" will be
-#    # exactly like "filtered_data"
-#    reconstructed_data = bb_reconstructed * eps_vec_reconstructed # exactly filtered   
-#
-#    ### Plots
-#    if it == 0:
-#        ax[it][0].set_title("Intensity")
-#        ax[it][1].set_title("Emissivity")
-#
-#    # Intensity
-#    ax[it][0].semilogy(wl_vec,noisy_data)
-#    ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
-#
-#    T_string = str(round(Tave,1)) + "+/-" + str(round(std,2)) + " K"
-#    error = np.abs((Tave-T)/T)*100
-#
-#    T_string += "\n" + str(round(error,2)) + " %"
-#    ax[it][0].text(850,np.average(I_calc)/100,T_string)
-#
-#    # Emissivity
-#    ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
-#    ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
+    # Compute the temperature
+    Tave, Tstd, Tmetric, sol = optimum_temperature(data_spl,cmb_pix,
+                                                pix_sub_vec,wl_vec,
+                                                poly_order)
+
+    ### Reconstruct data
+    bb_reconstructed = wien_approximation(wl_sub_vec,Tave,bb_eps)
+    eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
+    # Since we get epsilon from the filtered data, "reconstructed_data" will be
+    # exactly like "filtered_data"
+    reconstructed_data = bb_reconstructed * eps_vec_reconstructed # exactly filtered   
+
+    ### Plots
+    if it == 0:
+        ax[it][0].set_title("Intensity")
+        ax[it][1].set_title("Emissivity")
+
+    # Intensity
+    ax[it][0].semilogy(wl_vec,noisy_data)
+    ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
+
+    T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
+    error = np.abs((Tave-T)/T)*100
+
+    T_string += "\n" + str(round(error,2)) + " %"
+    ax[it][0].text(850,np.average(I_calc)/100,T_string)
+
+    # Emissivity
+    ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
+    ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
 
     it += 1

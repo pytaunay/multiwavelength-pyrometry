@@ -59,7 +59,7 @@ T = 3000
 ### Chosen emissivity function
 chosen_eps = gr_eps
 model_list = []
-for it in range(10):
+for it in range(2):
     model_list.append(chosen_eps)
 
 model_list = np.array(model_list)
@@ -104,7 +104,7 @@ for f_eps in model_list:
     reconstructed_data = bb_reconstructed * eps_vec_reconstructed # exactly filtered   
 
     # Alternative using the polynomial from optimization
-    reconstructed_alt = wien_approximation(wl_sub_vec,Tave,bb_eps)
+    reconstructed_alt = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
     wl_min = np.min(wl_sub_vec)
     wl_max = np.max(wl_sub_vec)
     

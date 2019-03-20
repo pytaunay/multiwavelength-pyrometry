@@ -171,8 +171,8 @@ def order_selection(data_spl,filtered_data,
                        pix_sub_vec,wl_vec,
                        bb_eps):
     ### Generate a training and testing dataset for the pixels themselves
-    n_splits = 10
-    kf = KFold(n_splits = n_splits, shuffle=True)
+    n_splits = 7
+    kf = KFold(n_splits = n_splits)
     metric_array = np.zeros((n_splits, sc.max_poly_order+1))
     metric_all = []
 
@@ -199,7 +199,7 @@ def order_selection(data_spl,filtered_data,
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category = RuntimeWarning)
         mean = np.nanmean(metric_array, axis=0)
-        
+       
     poly_order = np.nanargmin(mean)
 
     print("Mean of all k-folds:", mean)

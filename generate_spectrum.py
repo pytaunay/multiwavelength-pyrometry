@@ -20,6 +20,7 @@
 import numpy as np
 
 from scipy.interpolate import splrep
+from scipy.signal import medfilt
 
 from spectropyrometer_constants import C1,C2,window_length
 
@@ -66,8 +67,11 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
     noisy_data = np.random.normal(I_calc,0.1*I_calc)
     log_noisy = np.log10(noisy_data)
     
+    # Median filter
+    log_med = medfilt(log_noisy,sc.medfilt_kernel)
+    
     # Moving average
-    data_padded = np.pad(log_noisy, 
+    data_padded = np.pad(log_med, 
                          (window_length//2, window_length-1-window_length//2), 
                          mode='edge')
     
@@ -76,6 +80,10 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
 #                     data_padded[window_length:2*window_length],1)
     
     #data_padded[0:window_length] = m_dp*lnm_vec[0:window_length] + b_dp
+#    filtered_data = np.convolve(data_padded, 
+#                                np.ones((window_length,))/window_length, 
+#                                mode='valid')
+
     filtered_data = np.convolve(data_padded, 
                                 np.ones((window_length,))/window_length, 
                                 mode='valid')

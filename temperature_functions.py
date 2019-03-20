@@ -21,8 +21,6 @@ import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 import spectropyrometer_constants as sc
 
-
-
 from scipy.interpolate import splev
 
 from scipy.optimize import minimize

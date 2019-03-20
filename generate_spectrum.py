@@ -22,7 +22,65 @@ import numpy as np
 from scipy.interpolate import splrep
 from scipy.signal import medfilt
 
-from spectropyrometer_constants import C1,C2,window_length
+import spectropyrometer_constants as sc
+
+def smooth(x,window_len=11,window='hanning'):
+    """smooth the data using a window with requested size.
+
+    This method is based on the convolution of a scaled window with the signal.
+    The signal is prepared by introducing reflected copies of the signal 
+    (with the window size) in both ends so that transient parts are minimized
+    in the begining and end part of the output signal.
+
+    input:
+        x: the input signal 
+        window_len: the dimension of the smoothing window; should be an odd integer
+        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
+            flat window will produce a moving average smoothing.
+
+    output:
+        the smoothed signal
+
+    example:
+
+    t=linspace(-2,2,0.1)
+    x=sin(t)+randn(len(t))*0.1
+    y=smooth(x)
+
+    see also: 
+
+    numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
+    scipy.signal.lfilter
+
+    TODO: the window parameter could be the window itself if an array instead of a string
+    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
+    """
+
+    if x.ndim != 1:
+        raise(ValueError, "smooth only accepts 1 dimension arrays.")
+
+    if x.size < window_len:
+        raise(ValueError, "Input vector needs to be bigger than window size.")
+
+
+    if window_len<3:
+        return x
+
+
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise(ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+
+
+    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
+    #print(len(s))
+    if window == 'flat': #moving average
+        w=np.ones(window_len,'d')
+    else:
+        w=eval('np.'+window+'(window_len)')
+
+    y=np.convolve(w/w.sum(),s,mode='valid')
+    return y
+
 
 def wien_approximation(wl,T,f_eps):    
     '''
@@ -36,7 +94,7 @@ def wien_approximation(wl,T,f_eps):
     '''
     eps = f_eps(wl,T) # Emissivity
     
-    return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
+    return eps * sc.C1 / wl**5 * np.exp(-sc.C2/(T*wl))
 
 def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
     '''
@@ -67,13 +125,19 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
     noisy_data = np.random.normal(I_calc,0.1*I_calc)
     log_noisy = np.log10(noisy_data)
     
+    # 
+    log_smooth = smooth(log_noisy,window_len=sc.medfilt_kernel)
+    wl_smooth = smooth(wl_vec,window_len=sc.medfilt_kernel)
+    print(len(log_smooth),len(pix_vec))
+    
     # Median filter
-    log_med = medfilt(log_noisy,sc.medfilt_kernel)
+    log_med = medfilt(log_smooth,sc.window_length+1)
     
     # Moving average
-    data_padded = np.pad(log_med, 
-                         (window_length//2, window_length-1-window_length//2), 
-                         mode='edge')
+    wl = sc.window_length
+#    data_padded = np.pad(log_med, 
+#                         (wl//2, wl-1-wl//2), 
+#                         mode='edge')
     
 #    # Not so much for lower values; a linear fit to the data is better there
 #    m_dp,b_dp = np.polyfit(wl_vec[window_length:2*window_length],
@@ -84,20 +148,24 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
 #                                np.ones((window_length,))/window_length, 
 #                                mode='valid')
 
-    filtered_data = np.convolve(data_padded, 
-                                np.ones((window_length,))/window_length, 
-                                mode='valid')
+#    filtered_data = np.convolve(data_padded, 
+#                                np.ones((wl,))/wl, 
+#                                mode='valid')
+    
+#    filtered_data = smooth(log_med,window_len=1)
+    
     
     ### Remove the edge effects
-    wl_vec_sub = wl_vec[window_length:-window_length]
-    filtered_data = filtered_data[window_length:-window_length]
-    pix_vec_sub = pix_vec[window_length:-window_length]
+    wl_vec_sub = wl_vec[wl:-1]
+    log_med = log_med[wl:-wl]
+    pix_vec_sub = pix_vec[wl:-1]
     
+    print(len(log_med),len(wl_vec[wl:-1]))
     
     ### Fit a line through the noise with some smoothing
-    data_spl = splrep(wl_vec_sub,filtered_data)
+    data_spl = splrep(wl_vec_sub,log_med)
     
-    return I_calc,noisy_data,filtered_data,data_spl,pix_vec_sub
+    return I_calc,noisy_data,log_med,data_spl,pix_vec_sub
     
 def generate_emission_line(wl_line, wl_vec, I_calc, fac = 10):
     '''

@@ -35,14 +35,22 @@ Outputs:
 '''
 def choose_pixels(pix_vec,bin_method='average'):
     ### Bin the pixels
-    bins = pix_vec[0::pix_slice]
+    lo_bins = pix_vec[0::pix_slice]
+    hi_bins = pix_vec[pix_slice-1::pix_slice]
+    
     
     ### For each bin, find a pixel
     chosen_pix = []
-    for idx in bins[:-1]:
+    for idx in range(len(lo_bins)):
         # Find the low and high bounds of that slice
-        lo = pix_vec[idx]
-        hi = pix_vec[idx + pix_slice - 1]
+        lo = lo_bins[idx]
+        
+        # If the slice is out of bounds, pick last element
+        try:
+            hi = hi_bins[idx]
+        except:
+            hi = pix_vec[-1]
+                
         
         # Pick a pixel in the bin
         # Can be the average of the boundaries of the bin or a random pixel

@@ -57,7 +57,7 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 T = 3000
 
 ### Chosen emissivity function
-chosen_eps = w_eps
+chosen_eps = bb_eps
 model_list = []
 for it in range(10):
     model_list.append(chosen_eps)
@@ -103,9 +103,18 @@ for f_eps in model_list:
     reconstructed_alt = wien_approximation(wl_sub_vec,Tave,bb_eps)
     wl_min = np.min(wl_sub_vec)
     wl_max = np.max(wl_sub_vec)
-    cheb = Polynomial(sol.x,[wl_min,wl_max])
-    eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+    
+    if poly_order > 0:
+        cheb = Polynomial(sol.x,[wl_min,wl_max])
+        eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+        
+    else:
+        eps_ave = np.average(eps_vec_reconstructed)
+        eps_vec = eps_ave * np.ones(len(wl_sub_vec))
+        
     reconstructed_alt *= eps_vec
+
+
 
     ### Plots
     if it == 0:
@@ -126,13 +135,6 @@ for f_eps in model_list:
     # Emissivity
     ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
     ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
-
-    if poly_order > 0:
-        eps_poly = Polynomial(sol.x,[wl_min,wl_max])
-        eps_val = polynomial.polyval(wl_vec,eps_poly.coef)
-        ax[it][1].plot(wl_vec, eps_val, '-.')
-    else:
-        eps_ave = np.average(eps_vec)
-        ax[it][1].plot(wl_vec, eps_ave * np.ones(len(wl_vec)), '-.')
+    ax[it][1].plot(wl_sub_vec,eps_vec,'-.')
 
     it += 1

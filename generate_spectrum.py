@@ -23,6 +23,7 @@ from scipy.interpolate import splrep
 
 from spectropyrometer_constants import C1,C2,window_length
 
+def wien_approximation(wl,T,f_eps):    
 '''
 Function: wien_approximation
 Calculates the Wien approximation to Planck's law for non-constant emissivity
@@ -32,11 +33,11 @@ Inputs:
     - f_eps: a lambda function representing the emissivity as function of
     temperature and wavelength
 '''
-def wien_approximation(wl,T,f_eps):    
     eps = f_eps(wl,T) # Emissivity
     
     return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
 
+def generate_data(wl_vec,T,pix_vec,f_eps):
 '''
 Function: generate_data
 Computes an artificial spectrum with noise
@@ -53,7 +54,6 @@ Ouputs:
     - pix_vec_sub: the subset of pixels that we are dealing with (we remove 
     the edges after the moving average)
 '''
-def generate_data(wl_vec,T,pix_vec,f_eps):
     # Intensity from Wien's approximation
     I_calc = wien_approximation(wl_vec,T,f_eps)
     
@@ -87,5 +87,3 @@ def generate_data(wl_vec,T,pix_vec,f_eps):
     return I_calc,noisy_data,filtered_data,data_spl,pix_vec_sub
     
 #def generate_emission_line(wl):
-    
-

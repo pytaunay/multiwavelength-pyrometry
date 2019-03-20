@@ -18,7 +18,6 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
-from numpy.polynomial import Chebyshev,chebyshev
 from scipy.optimize import minimize
 from sklearn.model_selection import KFold
 

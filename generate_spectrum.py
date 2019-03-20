@@ -37,7 +37,7 @@ def wien_approximation(wl,T,f_eps):
     
     return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
 
-def generate_data(wl_vec,T,pix_vec,f_eps):
+def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
     '''
     Function: generate_data
     Computes an artificial spectrum with noise
@@ -46,6 +46,7 @@ def generate_data(wl_vec,T,pix_vec,f_eps):
         - T: the target temperature
         - pix_vec: the vector of pixel indices
         - f_eps: the emissivity chosen
+        - el: emission lines
     Ouputs:
         - I_calc: the Wien approximation of the spectrum w/o any noise
         - noisy_data: I_calc but with some noise
@@ -56,6 +57,10 @@ def generate_data(wl_vec,T,pix_vec,f_eps):
     '''
     # Intensity from Wien's approximation
     I_calc = wien_approximation(wl_vec,T,f_eps)
+    
+    if el is not None:
+        el_out = generate_emission_line(el, wl_vec, I_calc)
+        I_calc += el_out
     
     # Add some noisy and take the log base 10
     noisy_data = np.random.normal(I_calc,0.1*I_calc)
@@ -86,7 +91,49 @@ def generate_data(wl_vec,T,pix_vec,f_eps):
     
     return I_calc,noisy_data,filtered_data,data_spl,pix_vec_sub
     
-#def generate_emission_line(wl, I_base):
+def generate_emission_line(wl_line, wl_vec, I_calc, fac = 10):
+    '''
+    Function: generate_emission_line
+    Creates an emission line at a given wavelength which is 50% larger in
+    intensity than the base intensityt
+    Inputs:
+        - wl_line: line wavelength in nm
+        - wl_vec: all wavelengths in nm
+        - I_calc: the base intensity vector
+        - fac: a growth factor. The line will be fac * I_base at its peak
+    
+    '''
+    # Number of pixels
+    length = len(wl_vec)
+    
+    # Conditional
+#    cond = np.zeros(length,dtype=np.bool)
+#    for wl in wl_line:
+#        cond |= np.abs(wl_vec-wl) < 0.15
+    
+#    I_base = np.zeros(length)
+#    I_base = np.copy(I_calc)
+    
+    v_out = np.zeros(length)
+    
+#    v_out = fac * I_base * cond
+    
+    broadening = np.zeros(length)
+    sig = 2 # 10 nm standard deviation
+    for wl in wl_line:
+        cond = np.abs(wl_vec-wl) < 0.15
+        br = 1/(np.sqrt(np.pi)*sig)*np.exp(-1/2*((wl_vec-wl)/sig)**2)
+        # Rescale Intensity value
+        Ival = I_calc[cond]
+        br *= fac * Ival
+        
+        broadening += br
+    
+    v_out += broadening
+    
+    return v_out
+    
+    
     
 
     

@@ -22,8 +22,8 @@ import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
 import matplotlib.pyplot as plt
+import generate_spectrum as gs
 
-from generate_spectrum import generate_data,wien_approximation
 from pixel_operations import choose_pixels, generate_combinations
 from temperature_functions import optimum_temperature
 from kfold import order_selection
@@ -64,6 +64,9 @@ for it in range(10):
 
 model_list = np.array(model_list)
 
+### Emission lines
+el = np.array([350,400,450,500,600,650,800])
+
 ### Plots
 f,ax = plt.subplots(len(model_list),2)
 
@@ -73,9 +76,10 @@ for f_eps in model_list:
     print("Model: ", it)
 
     ### Generate some data
-    I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = generate_data(
-            wl_vec,T,pix_vec,f_eps)
+    I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
+            wl_vec,T,pix_vec,f_eps,el)
     wl_sub_vec = wl_vec[pix_sub_vec]
+    
 
     ### Choose the order of the emissivity w/ k-fold
     poly_order = order_selection(data_spl,filtered_data,

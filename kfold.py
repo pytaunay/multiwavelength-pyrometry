@@ -172,12 +172,13 @@ def order_selection(data_spl,filtered_data,
                        bb_eps):
     ### Generate a training and testing dataset for the pixels themselves
     n_splits = 7
-    kf = KFold(n_splits = n_splits)
+    kf = KFold(n_splits = n_splits, shuffle=True, 
+               random_state = np.random.randint(0,1000))
     metric_array = np.zeros((n_splits, sc.max_poly_order+1))
     metric_all = []
 
     ### For all pairs of training and testing datasets...
-    for train_idx, test_idx in kf.split(pix_sub_vec):
+    for train_idx, test_idx in kf.split(pix_sub_vec):        
         ### Training
         model_training = training(data_spl, pix_sub_vec, train_idx, wl_vec)
                 
@@ -192,6 +193,17 @@ def order_selection(data_spl,filtered_data,
         print(metric_all[idx])
         metric_array[idx,0:nelem] = np.array(metric_all[idx])
 
+    # Count number of entries that are non-zero for each polynomial order
+    for col in metric_array.T:
+        nz = np.count_nonzero(col)
+        
+        # If we do not have a column full of numbers, it means that the
+        # proposed emissivity polynomial yields a minimum in data dispersion 
+        # at a lower polynomial order. We should favor that lower polynomial
+        # order
+        if nz < n_splits:
+            col[col == 0] = 1e1
+
     # Ignore zeros for the mean
     metric_array[metric_array == 0] = np.nan
 
@@ -200,6 +212,8 @@ def order_selection(data_spl,filtered_data,
         warnings.simplefilter("ignore", category = RuntimeWarning)
         mean = np.nanmean(metric_array, axis=0)
        
+    
+        
     poly_order = np.nanargmin(mean)
 
     print("Mean of all k-folds:", mean)

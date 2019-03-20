@@ -97,7 +97,7 @@ for f_eps in model_list:
                                                 poly_order)
 
     ### Reconstruct data
-    bb_reconstructed = wien_approximation(wl_sub_vec,Tave,bb_eps)
+    bb_reconstructed = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
     eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
     # Since we get epsilon from the filtered data, "reconstructed_data" will be
     # exactly like "filtered_data"

@@ -18,7 +18,7 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
-from numpy.polynomial import Chebyshev,chebyshev, Polynomial, polynomial
+from numpy.polynomial import Polynomial, polynomial
 import spectropyrometer_constants as sc
 
 
@@ -84,6 +84,48 @@ def ce_temperature(logR, wl_v0, wl_v1):
     
     return Tave, Tstd, Tmetric   
    
+def nce_temperature(poly_coeff,logR,
+                    wl_v0,wl_v1,
+                    wl_binm,wl_binM,
+                    wl_min,
+                    wl_max):  
+    '''
+    Function: nce_temperature
+    Calculates the temperature based on a Non-Constant Emissivity (NCE).
+    The emissivity is modeled with a Chebyshev polynomial of order N where N 
+    is determined by a separate routine
+    Inputs:
+        - 
+    Outputs:
+        - Predicted temperature from averaging (K)
+        - Standard deviation (K)
+        - Standard deviation (%)
+     '''   
+    # Create a polynomial representation with the proposed coefficients
+    # Rescaling is done internally by providing the bounds l_min and l_max
+    domain = np.array([wl_min,wl_max])
+    pol =  Polynomial(poly_coeff,domain)
+    
+    # Calculate the emissivities at the corresponding wavelengths
+    eps1 = polynomial.polyval(wl_v1,pol.coef)
+    eps0 = polynomial.polyval(wl_v0,pol.coef)
+    
+    ### Inverse temperature
+    try:
+        invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
+        
+        ### Temperature
+        Tout = 1/invT
+        Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
+    
+        ### Returns
+        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
+    except:
+        Tave, Tstd, Tmetric = 1e5 * np.ones(3)
+    
+    return Tave, Tstd, Tmetric      
+
+
 
 def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):    
     '''
@@ -148,43 +190,4 @@ def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):
 
 
 
-def nce_temperature(poly_coeff,logR,
-                    wl_v0,wl_v1,
-                    wl_binm,wl_binM,
-                    wl_min,
-                    wl_max):  
-    '''
-    Function: nce_temperature
-    Calculates the temperature based on a Non-Constant Emissivity (NCE).
-    The emissivity is modeled with a Chebyshev polynomial of order N where N 
-    is determined by a separate routine
-    Inputs:
-        - 
-    Outputs:
-        - Predicted temperature from averaging (K)
-        - Standard deviation (K)
-        - Standard deviation (%)
-     '''   
-    # Create a polynomial representation with the proposed coefficients
-    # Rescaling is done internally by providing the bounds l_min and l_max
-    domain = np.array([wl_min,wl_max])
-    pol =  Polynomial(poly_coeff,domain)
-    
-    # Calculate the emissivities at the corresponding wavelengths
-    eps1 = polynomial.polyval(wl_v1,pol.coef)
-    eps0 = polynomial.polyval(wl_v0,pol.coef)
-    
-    ### Inverse temperature
-    try:
-        invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
-        
-        ### Temperature
-        Tout = 1/invT
-        Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
-    
-        ### Returns
-        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
-    except:
-        Tave, Tstd, Tmetric = 1e5 * np.ones(3)
-    
-    return Tave, Tstd, Tmetric  
+

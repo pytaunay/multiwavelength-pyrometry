@@ -24,36 +24,36 @@ from scipy.interpolate import splrep
 from spectropyrometer_constants import C1,C2,window_length
 
 def wien_approximation(wl,T,f_eps):    
-'''
-Function: wien_approximation
-Calculates the Wien approximation to Planck's law for non-constant emissivity
-Inputs:
-    - lnm: wavelength in nm
-    - T: temperature in K
-    - f_eps: a lambda function representing the emissivity as function of
-    temperature and wavelength
-'''
+    '''
+    Function: wien_approximation
+    Calculates the Wien approximation to Planck's law for non-constant emissivity
+    Inputs:
+        - lnm: wavelength in nm
+        - T: temperature in K
+        - f_eps: a lambda function representing the emissivity as function of
+        temperature and wavelength
+    '''
     eps = f_eps(wl,T) # Emissivity
     
     return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
 
 def generate_data(wl_vec,T,pix_vec,f_eps):
-'''
-Function: generate_data
-Computes an artificial spectrum with noise
-Inputs:
-    - wl_vec: vector of wavelengths
-    - T: the target temperature
-    - pix_vec: the vector of pixel indices
-    - f_eps: the emissivity chosen
-Ouputs:
-    - I_calc: the Wien approximation of the spectrum w/o any noise
-    - noisy_data: I_calc but with some noise
-    - filtered_data: the filtered 10-base logarithm of noisy_data
-    - data_spl: spline representation of the filtered data
-    - pix_vec_sub: the subset of pixels that we are dealing with (we remove 
-    the edges after the moving average)
-'''
+    '''
+    Function: generate_data
+    Computes an artificial spectrum with noise
+    Inputs:
+        - wl_vec: vector of wavelengths
+        - T: the target temperature
+        - pix_vec: the vector of pixel indices
+        - f_eps: the emissivity chosen
+    Ouputs:
+        - I_calc: the Wien approximation of the spectrum w/o any noise
+        - noisy_data: I_calc but with some noise
+        - filtered_data: the filtered 10-base logarithm of noisy_data
+        - data_spl: spline representation of the filtered data
+        - pix_vec_sub: the subset of pixels that we are dealing with (we remove 
+        the edges after the moving average)
+    '''
     # Intensity from Wien's approximation
     I_calc = wien_approximation(wl_vec,T,f_eps)
     
@@ -86,4 +86,9 @@ Ouputs:
     
     return I_calc,noisy_data,filtered_data,data_spl,pix_vec_sub
     
-#def generate_emission_line(wl):
+#def generate_emission_line(wl, I_base):
+    
+
+    
+    
+    

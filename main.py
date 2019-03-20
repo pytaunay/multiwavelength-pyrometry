@@ -57,7 +57,7 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 T = 3000
 
 ### Chosen emissivity function
-chosen_eps = bb_eps
+chosen_eps = gr_eps
 model_list = []
 for it in range(10):
     model_list.append(chosen_eps)

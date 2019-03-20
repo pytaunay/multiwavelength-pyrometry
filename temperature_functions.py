@@ -77,7 +77,7 @@ def ce_temperature(logR, wl_v0, wl_v1):
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'cv')
+        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
         
     except:
         Tave,std,rse = 1e5 * np.ones(3)
@@ -183,7 +183,7 @@ def nce_temperature(poly_coeff,logR,
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'cv')
+        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
     except:
         Tave, Tstd, Tmetric = 1e5 * np.ones(3)
     

@@ -23,9 +23,9 @@ C1 = 1.191e16 # W/nm4/cm2 Sr
 C2 = 1.4384e7 # nm K
 
 
-pix_slice = 100 # Total number of pixels to take into a slice
+pix_slice = 50 # Total number of pixels to take into a slice
 max_poly_order = 4 # Maximum polynomial order to consider
-cv_threshold = 0.3 # Coefficient of variation (%) before we consider the fit 
+cv_threshold = 0.01 # Coefficient of variation (%) before we consider the fit 
 # to be "bad"
 
 # Window length for the moving average

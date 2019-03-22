@@ -27,6 +27,7 @@ pix_slice = 50 # Total number of pixels to take into a slice
 max_poly_order = 4 # Maximum polynomial order to consider
 cv_threshold = 5e-3 # Coefficient of variation (%) before we consider the fit 
 # to be "bad"
+eps0 = 1.0
 
 
 window_length = (int)(pix_slice) # Window length for the moving average

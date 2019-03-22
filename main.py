@@ -65,7 +65,8 @@ for it in range(10):
 model_list = np.array(model_list)
 
 ### Emission lines
-el = np.array([350,400,450,500,600,650,800])
+#el = np.array([350,400,450,500,600,650,800])
+el = None
 
 ### Plots
 f,ax = plt.subplots(len(model_list),2)

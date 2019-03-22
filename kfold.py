@@ -87,7 +87,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
         
         # Initial values of coefficients
         pc0 = np.zeros(nunk+1)
-        pc0[0] = 0.5    
+        pc0[0] = sc.eps0  
         
         # Minimization of the coefficient of variation: Nelder-Mead
         min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} 

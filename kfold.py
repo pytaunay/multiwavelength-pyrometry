@@ -177,10 +177,12 @@ def order_selection(data_spl,filtered_data,
     metric_all = []
 
     ### For all pairs of training and testing datasets...
-    for train_idx, test_idx in kf.split(pix_sub_vec):        
+    for train_idx, test_idx in kf.split(pix_sub_vec):     
+        print("-------TRAINING--------")
         ### Training
         model_training = training(data_spl, pix_sub_vec, train_idx, wl_vec)
                 
+        print("-------TESTING--------")
         ### Testing
         model_metric = testing(data_spl, pix_sub_vec, test_idx, wl_vec, 
                                model_training)

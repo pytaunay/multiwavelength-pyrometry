@@ -25,6 +25,8 @@ from scipy.interpolate import splev
 
 from scipy.optimize import minimize
 
+from scipy.stats import normaltest
+
 
 from goal_function import goal_function
 
@@ -75,7 +77,8 @@ def ce_temperature(logR, wl_v0, wl_v1):
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
+        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
+        print('Coeffs: ', '[]', '\t p-value:',normaltest(Tleft)[1])
         
     except:
         Tave,std,rse = 1e5 * np.ones(3)
@@ -117,7 +120,8 @@ def nce_temperature(poly_coeff,logR,
         Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, _ = tukey_fence(Tout, method = 'dispersion')
+        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
+        print('Coeffs: ', poly_coeff, '\t p-value:',normaltest(Tleft)[1])
     except:
         Tave, Tstd, Tmetric = 1e5 * np.ones(3)
     

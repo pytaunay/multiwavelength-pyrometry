@@ -54,10 +54,10 @@ pix_vec = np.linspace(0,2999,3000)
 pix_vec = np.array(pix_vec,dtype=np.int64)
 
 ### Chosen temperature 
-T = 3000
+T = 1500
 
 ### Chosen emissivity function
-chosen_eps = w_eps
+chosen_eps = art_eps
 model_list = []
 for it in range(2):
     model_list.append(chosen_eps)

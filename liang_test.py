@@ -1,6 +1,6 @@
 from scipy.optimize import minimize, lsq_linear
 
-chosen_eps = w_eps
+chosen_eps = art_eps
 
 ### Create a blackbody spectrum "calibration" curve
 bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
@@ -48,22 +48,23 @@ def ftarget(X,l_vec,Dvec):
 
 # Perturbations
 #per_array = np.array([3,1,1.01,1.05,1.1,1.5,0.99,0.95,0.9,0.5,0.1,-1])
-per_array = np.array([1.])
+per_array = np.array([3,1,1.01,1.05,1.1,1.5,0.99,0.95,0.9,0.5,0.1,-1])
 f,ax = plt.subplots(1,2)
 ax[0].semilogy(l_cal,I_val,'o')
 ax[1].plot(l_cal,chosen_eps(l_cal,1),'o')
 ax[1].plot(l_cal,np.exp(sol_lsq.x[0:-1]))
 
 for per_fac in per_array:
+    bfgs_options = {'ftol':1e-16,'gtol':1e-16,'maxiter':10000}
     if per_fac > 0:
         sol = minimize(lambda X: ftarget(X,l_cal,Dvec), sol_lsq.x[0:-1]*per_fac,
-                       method='SLSQP',
-                       bounds=bounds)
+                       method='L-BFGS-B',
+                       bounds=bounds, options=bfgs_options)
     else:
         neps = len(sol_lsq.x[0:-1])
         sol = minimize(lambda X: ftarget(X,l_cal,Dvec), 0.5*np.ones(neps),
-                       method='SLSQP',
-                       bounds=bounds)        
+                       method='L-BFGS-B',
+                       bounds=bounds, options=bfgs_options)        
 
     Tvec = sc.C2/l_cal*1/(sol.x+Dvec)
     Tprediction = np.average(Tvec)

@@ -10,6 +10,10 @@ import pixel_operations as po
 
 from statistics import tukey_fence
 
+from sklearn.neighbors import KernelDensity
+from sklearn.grid_search import GridSearchCV
+from sklearn.cross_validation import LeaveOneOut
+
 T = 3000
 w_wl = np.array([300,350,400,500,600,700,800,900])
 w_eps_data = np.array([0.474,0.473,0.474,0.462,0.448,0.436,0.419,0.401])
@@ -93,6 +97,50 @@ sample = data[np.arange(sample_size), random_idx]
 sample_lo = sample[(sample>-0.1) & (sample<0.1)]
 #plt.hist(sample_lo, bins=100,normed=True)
 plt.hist( (Tleft-T)/T,bins=100,normed=True,histtype='step')
+
+dToT = (Tout-T)/T
+
+
+### Kernel density
+# Find the best bandwidth for a Gaussian kernel density
+bandwidths = 10 ** np.linspace(-1, 0, 50)
+grid_dToT = GridSearchCV(KernelDensity(kernel='gaussian'),
+                    {'bandwidth': bandwidths},
+                    cv=LeaveOneOut(len(dToT)))
+grid_dToT.fit(dToT[:, None]);
+print('dToT best params:',grid_dToT.best_params_)
+
+grid_sample = GridSearchCV(KernelDensity(kernel='gaussian'),
+                    {'bandwidth': bandwidths},
+                    cv=LeaveOneOut(len(sample)))
+grid_sample.fit(sample[:, None]);
+print('Sample best params:',grid_sample.best_params_)
+
+
+## Instantiate and fit the KDE model
+kde_dToT = KernelDensity(bandwidth=grid_dToT.best_params_['bandwidth'], 
+                    kernel='gaussian')
+kde_dToT.fit(dToT[:, None])
+
+kde_sample = KernelDensity(bandwidth=grid_sample.best_params_['bandwidth'], 
+                    kernel='gaussian')
+kde_sample.fit(sample[:, None])
+
+# Score_samples returns the log of the probability density
+x_d = np.linspace(-10,10,1000)
+logprob_dToT = kde_dToT.score_samples(x_d[:, None])
+logprob_sample = kde_sample.score_samples(x_d[:, None])
+
+plt.fill_between(x_d, np.exp(logprob_dToT), alpha=0.5)
+plt.plot(dToT, np.full_like(dToT, -0.01), '|k', markeredgewidth=1)
+
+plt.fill_between(x_d, np.exp(logprob_sample), alpha=0.5)
+plt.plot(sample, np.full_like(sample, -0.01), '|k', markeredgewidth=1)
+
+plt.ylim(-0.02, 5)
+plt.xlim(-5,5)
+
+
 
 #plt.show()
 

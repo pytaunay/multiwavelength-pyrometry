@@ -21,19 +21,31 @@ w_eps_data = np.array([0.474,0.473,0.474,0.462,0.448,0.436,0.419,0.401])
 w_m,w_b = np.polyfit(w_wl,w_eps_data,deg=1)
 w_eps = lambda wl,T: w_m*wl + w_b
 
+# Black and gray body
+bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
+gr_eps = lambda wl,T: 0.1 * np.ones(len(wl))
+
+
+# Artificial tests
+art_wl = np.array([300,500,1100])
+art_eps_data = np.array([1,0.3,1])
+art_fac = np.polyfit(art_wl,art_eps_data,deg=2)
+
+a0,a1,a2 = art_fac
+art_eps = lambda wl,T: a0*wl**2 + a1*wl + a2
 
 ### Vectors of pixels and wavelengths
 wl_vec = np.linspace(300,1100,(int)(3000))
 pix_vec = np.linspace(0,2999,3000)
 pix_vec = np.array(pix_vec,dtype=np.int64)
-f_eps = w_eps
+f_eps = art_eps
 
 
-I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
-        wl_vec,T,pix_vec,f_eps)
+#I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
+#        wl_vec,T,pix_vec,f_eps)
 wl_sub_vec = wl_vec[pix_sub_vec]
 #chosen_pix =po. choose_pixels(pix_sub_vec,bin_method='average')
-chosen_pix = np.arange(50,2951,10)
+chosen_pix = np.arange(50,2951,50)
 cmb_pix = po.generate_combinations(chosen_pix,pix_sub_vec)
 
 bins = pix_vec[0::sc.pix_slice]
@@ -55,13 +67,18 @@ wl_binM = np.append(wl_binM,wl_vec[-1])
 ### Calculate intensity ratio
 print("Calculate logR")
 logR = tf.calculate_logR(data_spl, wl_v0, wl_v1)
-poly_coeff = np.array([w_b,w_m])
-domain = np.array([wl_min,wl_max])
-pol =  Polynomial(poly_coeff,domain)
+#poly_coeff = np.array([w_b,w_m])
+#domain = np.array([wl_min,wl_max])
+#pol =  Polynomial(poly_coeff,domain)
+#
+## Calculate the emissivities at the corresponding wavelengths
+#eps1 = polynomial.polyval(wl_v1,pol.coef)
+#eps0 = polynomial.polyval(wl_v0,pol.coef)
 
-# Calculate the emissivities at the corresponding wavelengths
-eps1 = polynomial.polyval(wl_v1,pol.coef)
-eps0 = polynomial.polyval(wl_v0,pol.coef)
+# No emissivity error, so we can calculate eps1 and eps0 directly
+# from the given emissivity function
+eps0 = f_eps(wl_v0,1)
+eps1 = f_eps(wl_v1,1)
 
 print("Calculate Tout")
 invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
@@ -71,9 +88,13 @@ Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
 # Filter out some crazy values
 Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
 
-### Standard deviation
-std_array = np.sqrt(2) * np.abs(T / (sc.C2*(1/wl_v1-1/wl_v0)) * 0.1)
+### Distribution mixture
+print("Calculate distribution mixture")
+# Standard deviation of each normal distribution
+sigma_I = 0.1 # Error on intensity
+std_array = np.sqrt(2) * np.abs(T / (sc.C2*(1/wl_v1-1/wl_v0)) * sigma_I)
 
+# Form a dictionary of distributions
 distributions = []
 L = len(wl_v1)
 for k in range(L):
@@ -83,62 +104,74 @@ for k in range(L):
     dist_args = {"loc":0,"scale":std_array[k]}
     distributions.append({"type":dist_type,"kwargs":dist_args})
     
-coefficients = 1/L*np.ones(L)
+#coefficients = 1/L*np.ones(L)
+coefficients = 1/std_array**2
 coefficients /= coefficients.sum()      # in case these did not add up to 1
-sample_size = 2000
+sample_size = 10000
 
 num_distr = len(distributions)
 data = np.zeros((sample_size, num_distr))
 for idx, distr in enumerate(distributions):
     data[:, idx] = distr["type"](size=(sample_size,), **distr["kwargs"])
-random_idx = np.random.choice(np.arange(num_distr), size=(sample_size,), p=coefficients)
-sample = data[np.arange(sample_size), random_idx]
-#plt.hist(sample, bins=1000,normed=True)
-sample_lo = sample[(sample>-0.1) & (sample<0.1)]
-#plt.hist(sample_lo, bins=100,normed=True)
-plt.hist( (Tleft-T)/T,bins=100,normed=True,histtype='step')
+    
+random_idx = np.random.choice(np.arange(num_distr), 
+                              size=(sample_size,), 
+                              p=coefficients)
 
+sample = data[np.arange(sample_size), random_idx]
+sample_lo = sample[(sample>-0.5) & (sample<0.5)]
 dToT = (Tout-T)/T
+dToT_lo = dToT[(dToT > -0.5) & (dToT < 0.5)]
+
+#plt.hist(sample_lo, bins=100,normed=True)
+#plt.hist( (Tleft-T)/T,bins=100,normed=True,histtype='step')
+
+
 
 
 ### Kernel density
 # Find the best bandwidth for a Gaussian kernel density
-bandwidths = 10 ** np.linspace(-1, 0, 50)
+print("Calculate best kernel density bandwidth")
+bandwidths = 10 ** np.linspace(-4, 0, 50)
 grid_dToT = GridSearchCV(KernelDensity(kernel='gaussian'),
                     {'bandwidth': bandwidths},
-                    cv=LeaveOneOut(len(dToT)))
-grid_dToT.fit(dToT[:, None]);
+                    cv=LeaveOneOut(len(dToT_lo)))
+grid_dToT.fit(dToT_lo[:, None]);
 print('dToT best params:',grid_dToT.best_params_)
 
 grid_sample = GridSearchCV(KernelDensity(kernel='gaussian'),
                     {'bandwidth': bandwidths},
-                    cv=LeaveOneOut(len(sample)))
-grid_sample.fit(sample[:, None]);
+                    cv=LeaveOneOut(len(sample_lo)))
+grid_sample.fit(sample_lo[:, None]);
 print('Sample best params:',grid_sample.best_params_)
 
 
 ## Instantiate and fit the KDE model
+print("Instantiate and fit the KDE model")
 kde_dToT = KernelDensity(bandwidth=grid_dToT.best_params_['bandwidth'], 
                     kernel='gaussian')
-kde_dToT.fit(dToT[:, None])
+kde_dToT.fit(dToT_lo[:, None])
 
 kde_sample = KernelDensity(bandwidth=grid_sample.best_params_['bandwidth'], 
                     kernel='gaussian')
-kde_sample.fit(sample[:, None])
+kde_sample.fit(sample_lo[:, None])
 
 # Score_samples returns the log of the probability density
-x_d = np.linspace(-10,10,1000)
+x_d = np.linspace(-0.5,0.5,1000)
 logprob_dToT = kde_dToT.score_samples(x_d[:, None])
 logprob_sample = kde_sample.score_samples(x_d[:, None])
+
+### Plots
+plt.hist(dToT_lo,bins=100,normed=True,histtype='step')
 
 plt.fill_between(x_d, np.exp(logprob_dToT), alpha=0.5)
 plt.plot(dToT, np.full_like(dToT, -0.01), '|k', markeredgewidth=1)
 
 plt.fill_between(x_d, np.exp(logprob_sample), alpha=0.5)
-plt.plot(sample, np.full_like(sample, -0.01), '|k', markeredgewidth=1)
+plt.plot(sample, np.full_like(sample, -0.02), '|b', markeredgewidth=1)
 
 plt.ylim(-0.02, 5)
-plt.xlim(-5,5)
+plt.xlim(-1,1)
 
 
 

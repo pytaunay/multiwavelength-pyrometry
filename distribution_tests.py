@@ -107,7 +107,7 @@ for k in range(L):
 #coefficients = 1/L*np.ones(L)
 coefficients = 1/std_array**2
 coefficients /= coefficients.sum()      # in case these did not add up to 1
-sample_size = 10000
+sample_size = 3000
 
 num_distr = len(distributions)
 data = np.zeros((sample_size, num_distr))
@@ -170,7 +170,7 @@ plt.plot(dToT, np.full_like(dToT, -0.01), '|k', markeredgewidth=1)
 plt.fill_between(x_d, np.exp(logprob_sample), alpha=0.5)
 plt.plot(sample, np.full_like(sample, -0.02), '|b', markeredgewidth=1)
 
-plt.ylim(-0.02, 5)
+plt.ylim(-0.02, 50)
 plt.xlim(-1,1)
 
 

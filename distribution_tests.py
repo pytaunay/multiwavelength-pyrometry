@@ -29,7 +29,7 @@ I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
         wl_vec,T,pix_vec,f_eps)
 wl_sub_vec = wl_vec[pix_sub_vec]
 #chosen_pix =po. choose_pixels(pix_sub_vec,bin_method='average')
-chosen_pix = np.arange(50,2951,1)
+chosen_pix = np.arange(50,2951,10)
 cmb_pix = po.generate_combinations(chosen_pix,pix_sub_vec)
 
 bins = pix_vec[0::sc.pix_slice]
@@ -71,16 +71,17 @@ Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
 std_array = np.sqrt(2) * np.abs(T / (sc.C2*(1/wl_v1-1/wl_v0)) * 0.1)
 
 distributions = []
-for k in range(len(wl_v1)):
-    if(np.mod(k,100)==0):
+L = len(wl_v1)
+for k in range(L):
+    if(np.mod(k,10000)==0):
         print(k)
     dist_type = np.random.normal
     dist_args = {"loc":0,"scale":std_array[k]}
     distributions.append({"type":dist_type,"kwargs":dist_args})
     
-coefficients = 1/len(wl_v1)*np.ones(len(wl_v1))
+coefficients = 1/L*np.ones(L)
 coefficients /= coefficients.sum()      # in case these did not add up to 1
-sample_size = 1000
+sample_size = 2000
 
 num_distr = len(distributions)
 data = np.zeros((sample_size, num_distr))
@@ -88,8 +89,12 @@ for idx, distr in enumerate(distributions):
     data[:, idx] = distr["type"](size=(sample_size,), **distr["kwargs"])
 random_idx = np.random.choice(np.arange(num_distr), size=(sample_size,), p=coefficients)
 sample = data[np.arange(sample_size), random_idx]
-plt.hist(sample, bins=100, density=True)
-plt.show()
+#plt.hist(sample, bins=1000,normed=True)
+sample_lo = sample[(sample>-0.1) & (sample<0.1)]
+#plt.hist(sample_lo, bins=100,normed=True)
+plt.hist( (Tleft-T)/T,bins=100,normed=True,histtype='step')
+
+#plt.show()
 
 #
 #tout

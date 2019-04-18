@@ -24,6 +24,12 @@ from scipy.signal import medfilt, find_peaks_cwt
 
 import spectropyrometer_constants as sc
 
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+
 def wien_approximation(wl,T,f_eps):    
     '''
     Function: wien_approximation
@@ -67,34 +73,35 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
     noisy_data = np.random.normal(I_calc,0.1*I_calc)
     log_noisy = np.log10(noisy_data)
     
-    # Find the peaks in the data
-    peaks = find_peaks_cwt(log_noisy,np.array([sc.window_length/2]))
-    
-    # Remove the peaks
+#    # Find the peaks in the data
+#    peaks = find_peaks_cwt(log_noisy,np.array([sc.window_length/2]))
+#    
+#    # Remove the peaks
     nopeak = np.copy(log_noisy)
-    
-    for peak in peaks:
-        # Create a "window" around the peak
-        pxm = (int)(peak-sc.window_length/2)
-        pxM = (int)(peak+sc.window_length/2)
-        
-        # Find the average data before and after the window
-        win_mm = (int)(pxm - sc.window_length)
-        win_mp = (int)(pxm)
-        win_Mm = (int)(pxM)
-        win_Mp = (int)(pxM + sc.window_length)
-        
-        ym = np.average(log_noisy[win_mm:win_mp])
-        yM = np.average(log_noisy[win_Mm:win_Mp])
-        
-        # Fit a polynomial from one end to the other one
-        fit = np.polyfit(np.array([pxm,pxM]),np.array([ym,yM]),deg=1)
-        
-        # Overwrite
-        nopeak[pxm:pxM+1] = np.arange(pxm,pxM+1,1) * fit[0] + fit[1]
+#    
+#    for peak in peaks:
+#        # Create a "window" around the peak
+#        pxm = (int)(peak-sc.window_length/2)
+#        pxM = (int)(peak+sc.window_length/2)
+#        
+#        # Find the average data before and after the window
+#        win_mm = (int)(pxm - sc.window_length)
+#        win_mp = (int)(pxm)
+#        win_Mm = (int)(pxM)
+#        win_Mp = (int)(pxM + sc.window_length)
+#        
+#        ym = np.average(log_noisy[win_mm:win_mp])
+#        yM = np.average(log_noisy[win_Mm:win_Mp])
+#        
+#        # Fit a polynomial from one end to the other one
+#        fit = np.polyfit(np.array([pxm,pxM]),np.array([ym,yM]),deg=1)
+#        
+#        # Overwrite
+#        nopeak[pxm:pxM+1] = np.arange(pxm,pxM+1,1) * fit[0] + fit[1]
     
     # Median filter
-    log_med = medfilt(nopeak,sc.window_length+1)
+#    log_med = medfilt(nopeak,sc.window_length+1)
+    log_med = moving_average(nopeak,sc.window_length+1)
     
     # Moving average
     wl = sc.window_length
@@ -120,10 +127,11 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
     
     ### Remove the edge effects
     wl_vec_sub = wl_vec[wl:-wl]
-    log_med = log_med[wl:-wl]
+#    log_med = log_med[wl:-wl]
+    log_med = log_med[(int)(wl/2):-(int)(wl/2)]
     pix_vec_sub = pix_vec[wl:-wl]
     
-    print(len(log_med),len(wl_vec_sub))
+#    print(len(log_med),len(wl_vec_sub))s
     
     ### Fit a line through the noise with some smoothing
     data_spl = splrep(wl_vec_sub,log_med)

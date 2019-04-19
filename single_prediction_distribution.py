@@ -10,10 +10,11 @@ import pixel_operations as po
 from statistics import tukey_fence
 
 from scipy.interpolate import splev,splrep
-
+from scipy.special import factorial2
 
 nthat = 3000 # 3000 samples
-chosen_pix = np.arange(50,2950,50)
+dlambda = 50
+chosen_pix = np.arange(50,2950,dlambda)
 
 
 nwl = len(chosen_pix)
@@ -63,7 +64,7 @@ for idx in range(nthat):
             wl_vec,T,pix_vec,f_eps)
     wl_sub_vec = wl_vec[pix_sub_vec]
     #chosen_pix =po. choose_pixels(pix_sub_vec,bin_method='average')
-    chosen_pix = np.arange(50,2950,50)
+    chosen_pix = np.arange(50,2950,dlambda)
     cmb_pix = po.generate_combinations(chosen_pix,pix_sub_vec)
     
     bins = pix_vec[0::sc.pix_slice]
@@ -83,7 +84,23 @@ for idx in range(nthat):
     wl_binM = np.append(wl_binM,wl_vec[-1])
     
     ### Calculate intensity ratio
-    logR = tf.calculate_logR(data_spl, wl_v0, wl_v1)
+#    logR = tf.calculate_logR(data_spl, wl_v0, wl_v1)
+    logR_array = []
+    logIi = filtered_data[cmb_pix[:,0]-sc.window_length]
+    logIj = filtered_data[cmb_pix[:,1]-sc.window_length]
+#    for wl0, wl1 in zip(wl_v0, wl_v1):                
+        # Corresponding data from the filtered data
+#        res0 = 10**splev(wl0, data_spl)
+#        res1 = 10**splev(wl1, data_spl)
+      
+        # Ratio of intensities
+#        R = res0/res1
+#        logR = np.log(R)
+    logR = np.log(10)*(logIi-logIj)
+#        logR_array.append(logR)
+        
+#    logR_array = np.array(logR_array)    
+    
     
     # No emissivity error, so we can calculate eps1 and eps0 directly
     # from the given emissivity function
@@ -100,15 +117,16 @@ for idx in range(nthat):
     
     ### PDistributions
     dToT_dist[:,idx] = (Tout-T)/T
-    Tden_dist[:,idx] = 1/invT
+#    Tden_dist[:,idx] = 1/invT
+    Tden_dist[:,idx] = (Tout/T)
 #    Tden_dist[:,idx] = invT
-#    Ii_dist[:,idx] = 10**splev(wl_v0,data_spl)
-#    Ij_dist[:,idx] = 10**splev(wl_v1,data_spl)
-    Ii_dist[:,idx] = filtered_data[cmb_pix[:,0]-sc.window_length]
-    Ij_dist[:,idx] = filtered_data[cmb_pix[:,1]-sc.window_length]
-    Iinoisy_dist[:,idx] = noisy_data[cmb_pix[:,0]]
-    Ijnoisy_dist[:,idx] = noisy_data[cmb_pix[:,1]]
-    
+##    Ii_dist[:,idx] = 10**splev(wl_v0,data_spl)
+##    Ij_dist[:,idx] = 10**splev(wl_v1,data_spl)
+#    Ii_dist[:,idx] = filtered_data[cmb_pix[:,0]-sc.window_length]
+#    Ij_dist[:,idx] = filtered_data[cmb_pix[:,1]-sc.window_length]
+#    Iinoisy_dist[:,idx] = noisy_data[cmb_pix[:,0]]
+#    Ijnoisy_dist[:,idx] = noisy_data[cmb_pix[:,1]]
+#    
 #    Tave_dist[idx] = Tave
     Tave_dist[idx] = (np.mean(Tout) - T)/T
     
@@ -127,47 +145,62 @@ for idx in range(L):
     pixi = cmb_pix[idx,0]
     pixj = cmb_pix[idx,1]
     
-    icontrib = np.sum(np.log(I_calc)[pixi-25:pixi+25])
-    jcontrib = np.sum(np.log(I_calc)[pixj-25:pixj+25])
+    # window size over 2
+    wo2 = (int)(sc.window_length/2)
     
-    mud_all[idx] = 1/sc.window_length * (icontrib - jcontrib)
+    icontrib = np.sum(np.log(I_calc)[pixi-wo2:pixi+wo2+1])
+    jcontrib = np.sum(np.log(I_calc)[pixj-wo2:pixj+wo2+1])
+    
+    mud_all[idx] = 1/(sc.window_length+1) * (icontrib - jcontrib)
 
 mud_all += - 5*np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
 sigd_all = np.ones_like(mud_all) * np.sqrt(2/sc.window_length)*sigma_I
+#sigd_all *=   / sc.window_length
+
 lam_all = (mud_all / sigd_all)**2
     
 Teq = sc.C2*(1/wl_v1-1/wl_v0) / mud_all
 
-sigdThat_all = 1/lam_all * (1+lam_all)
-sigdThat_all *= (Teq/T)**2
-sigdThat_all *= np.sqrt(2/sc.window_length) 
-sigdThat_all *= sigma_I * T / np.abs( sc.C2*(1/wl_v1-1/wl_v0))
+
+muThat_all = np.zeros_like(mud_all)
+
+def mu_expansion(lam,Nseries):
+    approx = 0
+    for k in range(Nseries):
+        approx += 1/lam**k * factorial2(2*k-1)
+        
+    return approx
+
+findN = lambda N,idx: np.abs((np.abs(factorial2(2*N-1) * sigd_all[idx]**(2*N)/mud_all[idx]**(2*N+1))))
+findNarray = np.zeros_like(mud_all,dtype=np.int64)
+Narr = np.arange(0,30,1)
+Narr = np.array(Narr,dtype=np.int64)
+for idx in range(L):
+    argmin = np.argmin(findN(Narr,idx))
+    findNarray[idx] = (int)(Narr[argmin])
+#muThat_all = Teq * (1+1/lam_all+3/lam_all**2 + 15/lam_all**3 )
+    muThat_all[idx] = mu_expansion(lam_all[idx],findNarray[idx])
+    
+muThat_all *= Teq / T
+sigdThat_all = Teq / T * np.abs(sigd_all / mud_all) * np.sqrt(1+2*(sigd_all / mud_all)**2)
+
+lamThat_all = muThat_all**2/sigdThat_all**2
+#sigdThat_all = 1/lam_all * (1+1/lam_all)
+#sigdThat_all *= (Teq/T)**2
+#sigdThat_all *= np.sqrt(4/sc.window_length) 
+#sigdThat_all *= sigma_I * T / np.abs( sc.C2*(1/wl_v1-1/wl_v0))
+
+
 
 sigdTbar = np.sum(sigdThat_all**2)
+#sigdTbar = np.sum(sigdThat_all[mud_all < -0.5]**2)
 sigdTbar = np.sqrt(sigdTbar)
 sigdTbar /= L
 
-#coefficients = 1 / L * np.ones(L)
-#coefficients /= coefficients.sum()      # in case these did not add up to 1
-#sample_size = nthat
-#
-#data = np.zeros((sample_size, L))
-#
-#std_array = np.sqrt(2) * np.abs(T / (sc.C2*(1/wl_v1-1/wl_v0)) * sigma_I) / L
-#std_array *= (Teq/T)**2
-#
-#for idx in range(L):
-#    chi2_nc = (mud_all[idx]/sigd_all[idx])**2
-#    
-#    norm_fac = norm.rvs(loc = 0,scale = std_array[idx],size=sample_size)
-#    chi2_fac = ncx2.rvs(df = 1, nc =chi2_nc,size=sample_size )    
-##    chi2_fac = 1
-#    
-#    data[:, idx] = 1/chi2_nc * chi2_fac * norm_fac
-#    
-#random_idx = np.random.choice(np.arange(L), 
-#                              size=(sample_size,), 
-#                              p=coefficients)
-#
-#sample = data[np.arange(sample_size), random_idx]
-#sample_lo = sample[(sample>-0.5) & (sample<0.5)]
+cnt,bins,_ = plt.hist( Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)],bins=1000,normed='True',histtype='step')
+# Account for offset
+mu,sig = norm.fit(Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)]) 
+#mu = 0
+_ = plt.hist( norm.rvs(loc=mu,scale=sigdTbar,size=10000),bins=bins,normed='True',histtype='step')
+
+

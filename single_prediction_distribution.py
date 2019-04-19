@@ -13,7 +13,7 @@ from scipy.interpolate import splev,splrep
 from scipy.special import factorial2
 
 nthat = 3000 # 3000 samples
-dlambda = 50
+dlambda = 100
 chosen_pix = np.arange(50,2950,dlambda)
 
 
@@ -203,4 +203,28 @@ mu,sig = norm.fit(Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)])
 #mu = 0
 _ = plt.hist( norm.rvs(loc=mu,scale=sigdTbar,size=10000),bins=bins,normed='True',histtype='step')
 
+def doublesum(Nwl,lam_m,dlam):
+    s = 0.0
+    for i in np.arange(1,Nwl,1):
+        lambdai = lam_m + (i-1)*dlam
+        for j in np.arange(i+1,Nwl+1,1):
+            lambdaj = lambdai + j * dlam
+            
+            s += (lambdaj * lambdai / (j*dlam))**2 
+    
+    return s
 
+            
+
+#def sigdT(lam_m,lam_M,dlam,Nwl,T0):
+def sigdT(wl_v0,wl_v1,Nwl,T0):  
+    fac = 2*sigma_I / np.sqrt(sc.window_length+1) * T0 / sc.C2 * 1/Nwl
+    print(fac)
+    
+    s = np.sqrt(np.sum((1/(1/wl_v0 - 1/wl_v1))**2))
+#    s = doublesum(Nwl,lam_m,dlam)
+    print(s,np.sqrt(s))
+    
+    return fac * np.sqrt(s)
+    
+    

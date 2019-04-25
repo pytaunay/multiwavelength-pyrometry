@@ -13,7 +13,7 @@ from scipy.interpolate import splev,splrep
 from scipy.special import factorial2
 
 nthat = 3000 # 3000 samples
-dlambda = 100
+dlambda = 300
 chosen_pix = np.arange(50,2950,dlambda)
 
 
@@ -197,11 +197,6 @@ sigdTbar = np.sum(sigdThat_all**2)
 sigdTbar = np.sqrt(sigdTbar)
 sigdTbar /= L
 
-cnt,bins,_ = plt.hist( Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)],bins=1000,normed='True',histtype='step')
-# Account for offset
-mu,sig = norm.fit(Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)]) 
-#mu = 0
-_ = plt.hist( norm.rvs(loc=mu,scale=sigdTbar,size=10000),bins=bins,normed='True',histtype='step')
 
 def doublesum(Nwl,lam_m,dlam):
     s = 0.0
@@ -219,12 +214,21 @@ def doublesum(Nwl,lam_m,dlam):
 #def sigdT(lam_m,lam_M,dlam,Nwl,T0):
 def sigdT(wl_v0,wl_v1,Nwl,T0):  
     fac = 2*sigma_I / np.sqrt(sc.window_length+1) * T0 / sc.C2 * 1/Nwl
-    print(fac)
-    
+     
     s = np.sqrt(np.sum((1/(1/wl_v0 - 1/wl_v1))**2))
-#    s = doublesum(Nwl,lam_m,dlam)
-    print(s,np.sqrt(s))
     
-    return fac * np.sqrt(s)
+    return fac * s
+
+### PLOTS
+
+cnt,bins,_ = plt.hist( Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)],bins=100,normed='True',histtype='step')
+## Account for offset
+mu,sig = norm.fit(Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)]) 
+##mu = 0
+_ = plt.hist( norm.rvs(loc=mu,scale=sigdTbar,size=10000),bins=bins,normed='True',histtype='step')
+siganalytic = sigdT(wl_v0,wl_v1,len(wl_v0),T)
+_ = plt.hist( norm.rvs(loc=mu,scale=siganalytic,size=10000),bins=bins,normed=True,histtype='step')
+
+print(len(np.arange(50,2950,dlambda)),sig)
     
     

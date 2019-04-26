@@ -108,7 +108,7 @@ def muthat_expansion(mu,sig,order):
     return approx
 
 
-def compute_high_order_variance():    
+def compute_high_order_variance(T0):    
     root = 'variance_calculations/'
     cmb_pix = np.read(root+'cmb_pix.npy')
     I_calc = np.read(root+'I_calc.npy')
@@ -122,8 +122,8 @@ def compute_high_order_variance():
     
     # True window size
     w = sc.window_length + 1
-    
-    # Form a dictionary of distributions
+
+    ### Noise on measurements    
     sigma_I = 0.1
     
     ### Denominator average and variance for all wavelengths
@@ -171,73 +171,45 @@ def compute_high_order_variance():
     muThat *= Teq / T0
     
     # Taylor expansion for sigThat: we keep only the first two orders
-    sigThat = sigomud2 * (1 + 2*sigomud2)
-    sigThat = np.sqrt(sigThat)
-    sigThat *= (Teq/T0)
+    sigThat = (Teq/T0)**2 * sigomud2 * (1 + 2*sigomud2)
+    sigThat = np.sqrt(sigThat)    
     
     
-    ### muThatsq, sigdThatsq: square of That/T0
-    # muThatsq
-    muThatsq = muThat**2 + sigThat**2
-    sigdThatsq = (4 * muThat**2 * sigThat**2 + 3*sigThat**4)
-    sigdThatsq = np.sqrt(sigdThatsq)
+    ### muTbar, sigTbar
+    # muTbar: subtract 1 bc. we want (Tbar-T0)/T0 = Tbar/T0 - 1
+    muTbar = 1/Ncomb * np.sum(muThat) - 1
     
-    ### mudI, sigdI: terms that involve the differentials
-    mudI = 0
-    sigdI = 2*sigma_I / w * T0 / (sc.C2*(1/wl_v1-1/wl_v0))
-    sigdI = np.sqrt(np.abs(sigdI))
+    # sigTbar
+    sigTbar = 1/Ncomb**2 * np.sum(sigThat)
     
-    ### mudThat, sigdThat
-    # mudThat = 0 since emissivities are known
-    mudThat = np.zeros_like(mud)
-    
-    # sigdThat: Q,R w/ non centered chi-squared distributions
-    lamQ = 1/2 * (mudI + muThatsq)**2
-    lamR = 1/2 * (mudI - muThatsq)**2
-    
-    # sigdThat: Z = (That/T0)^2 * dterms
-    mudZ = (lamQ-lamR)
-    varZ = 4 * (1+lamQ+lamR)
-    
-    # sigdThat: add in the terms that were factored out
-    sigdThat = varZ / 4 * sigThatsq**2 * sigdI**2
-    
-    
-    
-#    lam_all = (mud_all / sigd_all)**2
-    lamThat_all = muThat_all**2/sigdThat_all**2
-    #sigdThat_all = 1/lam_all * (1+1/lam_all)
-    #sigdThat_all *= (Teq/T)**2
-    #sigdThat_all *= np.sqrt(4/sc.window_length) 
-    #sigdThat_all *= sigma_I * T / np.abs( sc.C2*(1/wl_v1-1/wl_v0))
-    ### Pair-wise temperature error
-    sigdTbar = np.sum(sigdThat_all**2)
-    #sigdTbar = np.sum(sigdThat_all[mud_all < -0.5]**2)
-    sigdTbar = np.sqrt(sigdTbar)
-    sigdTbar /= L
+    return muTbar,sigTbar
 
-### Input parameters
-nthat = 2000 # Number of samples for Monte-Carlo
-T0 = 3000
 
-# Wavelengths
-dlambda = 50 # Skip that many wavelengths
-chosen_pix = np.arange(50,2950,dlambda)
-lambda_0 = 300
-lambda_N = 1100
+#### Input parameters
+#nthat = 2000 # Number of samples for Monte-Carlo
+#T0 = 3000
+#
+## Wavelengths
+#dlambda = 50 # Skip that many wavelengths
+#chosen_pix = np.arange(50,2950,dlambda)
+#lambda_0 = 300
+#lambda_N = 1100
+#
+#wl_vec = np.linspace(lambda_0,lambda_N,(int)(3000))
+#pix_vec = np.linspace(0,2999,3000)
+#pix_vec = np.array(pix_vec,dtype=np.int64)
+#
+#nwl = len(chosen_pix)
+#nwl = (int)(nwl * (nwl-1)/2)
+#
+#### Create some data
+#Tbar_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat)
+#
+#### Calculate the variance based on the second-order accurate expansions
+#muTbar, sigTbar = compute_high_order_variance()
 
-wl_vec = np.linspace(lambda_0,lambda_N,(int)(3000))
-pix_vec = np.linspace(0,2999,3000)
-pix_vec = np.array(pix_vec,dtype=np.int64)
-
-nwl = len(chosen_pix)
-nwl = (int)(nwl * (nwl-1)/2)
-
-### Create some data
-dToT_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat)
-
-### Calculate the variance based on the second-order accurate expansions
-#sig_accurate = 
+### Calculate the variance based on the successive approximations to get an 
+### analytical expression
 
 
 #

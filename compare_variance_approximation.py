@@ -16,7 +16,7 @@ from sklearn.neighbors import KernelDensity
 from sklearn.grid_search import GridSearchCV
 
 
-def generate_dTaverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
+def generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
     '''
     This function generates a distribution of errors. The errors are between
     the true temperature and the one calculated with the variance method.
@@ -72,10 +72,40 @@ def generate_dTaverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
         # Filter out some crazy values
         Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
         
-        ### PDistributions
+        ### Distributions
         Tave_dist[idx] = (np.mean(Tout) - T0)/T0
         
+    
+    ### Write data to disk
+    root = 'variance_calculations/'
+    np.save(root+'cmb_pix.npy',cmb_pix)
+    np.save(root+'I_calc.npy',I_calc)
+    np.save(root+'wl_v1.npy',wl_v1)
+    np.save(root+'wl_v0.npy',wl_v0)
+    np.save(root+'eps0.npy',eps0)
+    np.save(root+'eps1.npy',eps1)
+        
     return Tave_dist
+
+def muthat_expansion(mu,sig,order):
+    '''
+    Calculates the expansion for mu_{\hat{T}} based on mu_D and sigma_D.
+    The expansion calculates the average of 1/X where X ~ N(mu_D,sigma_D^2):
+        E[1/X] \approx 1/mu * sum_{k=0}^N (sigma/mu)**2k * (2k-1)!!
+    Because 1/mu is lumped into Teq after the call to this function, it is
+    not necessary to multiply the result of the for loop by 1//mu.
+    Inputs:
+        - mu, sig: expected value and standard deviation of X
+        - order: order of the expansion
+
+    '''
+    sigomu = sig/mu
+    sigomu2 = sigomu**2
+    approx = 0
+    for k in range(order):
+        approx += sigomu2**k * factorial2(2*k-1)
+        
+    return approx
 
 
 def compute_high_order_variance():    
@@ -96,7 +126,8 @@ def compute_high_order_variance():
     # Form a dictionary of distributions
     sigma_I = 0.1
     
-    ### mu_denominator for all wavelengths
+    ### Denominator average and variance for all wavelengths
+    # mud, sigd
     mud = np.zeros(Ncomb)
     for idx in range(Ncomb):
         pixi = cmb_pix[idx,0]
@@ -112,40 +143,74 @@ def compute_high_order_variance():
     
     mud += - 5*np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
     sigd = np.ones_like(mud) * np.sqrt(2/w)*sigma_I
+       
+    ### muThat, sigThat
+    muThat = np.zeros_like(mud)
+    sigThat = np.zeros_like(mud)
     
-    lam_all = (mud_all / sigd_all)**2
-        
-    Teq = sc.C2*(1/wl_v1-1/wl_v0) / mud_all
+    # Teq
+    Teq = sc.C2*(1/wl_v1-1/wl_v0) / mud
     
+    # Taylor expansion for muThat: we want to find the "best" order in the 
+    # expansion of the mean of 1/X
+    sigomud = sigd/mud
+    sigomud2 = sigomud**2
     
-    muThat_all = np.zeros_like(mud_all)
-    
-    def mu_expansion(lam,Nseries):
-        approx = 0
-        for k in range(Nseries):
-            approx += 1/lam**k * factorial2(2*k-1)
-            
-        return approx
-    
-    findN = lambda N,idx: np.abs((np.abs(factorial2(2*N-1) * sigd_all[idx]**(2*N)/mud_all[idx]**(2*N+1))))
-    findNarray = np.zeros_like(mud_all,dtype=np.int64)
+    findN = lambda N,idx: np.abs(1/mud[idx]) * factorial2(2*N-1) * sigomud2**N
     Narr = np.arange(0,30,1)
     Narr = np.array(Narr,dtype=np.int64)
-    for idx in range(L):
-        argmin = np.argmin(findN(Narr,idx))
-        findNarray[idx] = (int)(Narr[argmin])
-    #muThat_all = Teq * (1+1/lam_all+3/lam_all**2 + 15/lam_all**3 )
-        muThat_all[idx] = mu_expansion(lam_all[idx],findNarray[idx])
-        
-    muThat_all *= Teq / T
-    sigdThat_all = Teq / T * np.abs(sigd_all / mud_all) * np.sqrt(1+2*(sigd_all / mud_all)**2)
     
+    for idx in range(Ncomb):
+        argmin = np.argmin(findN(Narr,idx))
+        order = (int)(Narr[argmin])
+        
+        mu = mud[idx]
+        sig = sigd[idx]
+        muThat[idx] = muthat_expansion(mu,sig,order)
+    
+    muThat *= Teq / T0
+    
+    # Taylor expansion for sigThat: we keep only the first two orders
+    sigThat = sigomud2 * (1 + 2*sigomud2)
+    sigThat = np.sqrt(sigThat)
+    sigThat *= (Teq/T0)
+    
+    
+    ### muThatsq, sigdThatsq: square of That/T0
+    # muThatsq
+    muThatsq = muThat**2 + sigThat**2
+    sigdThatsq = (4 * muThat**2 * sigThat**2 + 3*sigThat**4)
+    sigdThatsq = np.sqrt(sigdThatsq)
+    
+    ### mudI, sigdI: terms that involve the differentials
+    mudI = 0
+    sigdI = 2*sigma_I / w * T0 / (sc.C2*(1/wl_v1-1/wl_v0))
+    sigdI = np.sqrt(np.abs(sigdI))
+    
+    ### mudThat, sigdThat
+    # mudThat = 0 since emissivities are known
+    mudThat = np.zeros_like(mud)
+    
+    # sigdThat: Q,R w/ non centered chi-squared distributions
+    lamQ = 1/2 * (mudI + muThatsq)**2
+    lamR = 1/2 * (mudI - muThatsq)**2
+    
+    # sigdThat: Z = (That/T0)^2 * dterms
+    mudZ = (lamQ-lamR)
+    varZ = 4 * (1+lamQ+lamR)
+    
+    # sigdThat: add in the terms that were factored out
+    sigdThat = varZ / 4 * sigThatsq**2 * sigdI**2
+    
+    
+    
+#    lam_all = (mud_all / sigd_all)**2
     lamThat_all = muThat_all**2/sigdThat_all**2
     #sigdThat_all = 1/lam_all * (1+1/lam_all)
     #sigdThat_all *= (Teq/T)**2
     #sigdThat_all *= np.sqrt(4/sc.window_length) 
     #sigdThat_all *= sigma_I * T / np.abs( sc.C2*(1/wl_v1-1/wl_v0))
-    
+    ### Pair-wise temperature error
     sigdTbar = np.sum(sigdThat_all**2)
     #sigdTbar = np.sum(sigdThat_all[mud_all < -0.5]**2)
     sigdTbar = np.sqrt(sigdTbar)
@@ -169,7 +234,7 @@ nwl = len(chosen_pix)
 nwl = (int)(nwl * (nwl-1)/2)
 
 ### Create some data
-dToT_ds = generate_dTaverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat)
+dToT_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat)
 
 ### Calculate the variance based on the second-order accurate expansions
 #sig_accurate = 

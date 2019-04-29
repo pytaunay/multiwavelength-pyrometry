@@ -70,7 +70,7 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
         I_calc += el_out
     
     # Add some noise and take the log base 10
-    noisy_data = np.random.normal(I_calc,0.1*I_calc)
+    noisy_data = np.random.normal(I_calc,0.01*I_calc)
     log_noisy = np.log10(noisy_data)
     
 #    # Find the peaks in the data

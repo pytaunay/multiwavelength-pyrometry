@@ -10,7 +10,7 @@ import pixel_operations as po
 from statistics import tukey_fence
 
 from scipy.interpolate import splev,splrep
-from scipy.special import factorial2
+from scipy.special import factorial2, polygamma
 
 from sklearn.neighbors import KernelDensity
 from sklearn.grid_search import GridSearchCV
@@ -36,8 +36,8 @@ def generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
     
     ### Sample data
     for idx in range(nthat):
-        if(np.mod(idx,2000)==0):
-            print(idx)
+#        if(np.mod(idx,500)==0):
+#            print(idx)
         
         I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
                 wl_vec,T0,pix_vec,gr_eps)
@@ -108,23 +108,24 @@ def muthat_expansion(mu,sig,order):
     return approx
 
 
-def compute_high_order_variance(T0):    
+def compute_high_order_variance(T0,sigma_I,w):  
+    '''
+    Calculates the variance from the successive Taylor expansions. We keep
+    high orders for all of the expansions.
+    Inputs:
+        - T0: true temperature
+        - sigma_I: standard variation on the measurement noise
+    '''
     root = 'variance_calculations/'
-    cmb_pix = np.read(root+'cmb_pix.npy')
-    I_calc = np.read(root+'I_calc.npy')
-    wl_v1 = np.read(root+'wl_v1.npy')
-    wl_v0 = np.read(root+'wl_v0.npy')
-    eps0 = np.read(root+'eps0.npy')
-    eps1 = np.read(root+'eps1.npy')
+    cmb_pix = np.load(root+'cmb_pix.npy')
+    I_calc = np.load(root+'I_calc.npy')
+    wl_v1 = np.load(root+'wl_v1.npy')
+    wl_v0 = np.load(root+'wl_v0.npy')
+    eps0 = np.load(root+'eps0.npy')
+    eps1 = np.load(root+'eps1.npy')
     
     # Number of combinations
     Ncomb = len(wl_v1)
-    
-    # True window size
-    w = sc.window_length + 1
-
-    ### Noise on measurements    
-    sigma_I = 0.1
     
     ### Denominator average and variance for all wavelengths
     # mud, sigd
@@ -143,7 +144,15 @@ def compute_high_order_variance(T0):
     
     mud += - 5*np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
     sigd = np.ones_like(mud) * np.sqrt(2/w)*sigma_I
-       
+    mudmin = np.min(np.abs(mud))
+    
+    
+    
+    ratio = np.unique(sigd) / mudmin
+    ratio = np.abs(ratio)
+    
+#    print(mudmin,np.unique(sigd),ratio)
+    
     ### muThat, sigThat
     muThat = np.zeros_like(mud)
     sigThat = np.zeros_like(mud)
@@ -156,7 +165,7 @@ def compute_high_order_variance(T0):
     sigomud = sigd/mud
     sigomud2 = sigomud**2
     
-    findN = lambda N,idx: np.abs(1/mud[idx]) * factorial2(2*N-1) * sigomud2**N
+    findN = lambda N,idx: np.abs(1/mud[idx]) * factorial2(2*N-1) * sigomud2[idx]**N
     Narr = np.arange(0,30,1)
     Narr = np.array(Narr,dtype=np.int64)
     
@@ -180,37 +189,159 @@ def compute_high_order_variance(T0):
     muTbar = 1/Ncomb * np.sum(muThat) - 1
     
     # sigTbar
-    sigTbar = 1/Ncomb**2 * np.sum(sigThat)
+    sigTbar = 1/Ncomb**2 * np.sum(sigThat**2)
+    sigTbar = np.sqrt(sigTbar)
     
-    return muTbar,sigTbar
+    return muTbar,sigTbar,ratio
 
 
-#### Input parameters
-#nthat = 2000 # Number of samples for Monte-Carlo
-#T0 = 3000
-#
-## Wavelengths
-#dlambda = 50 # Skip that many wavelengths
-#chosen_pix = np.arange(50,2950,dlambda)
-#lambda_0 = 300
-#lambda_N = 1100
-#
-#wl_vec = np.linspace(lambda_0,lambda_N,(int)(3000))
-#pix_vec = np.linspace(0,2999,3000)
-#pix_vec = np.array(pix_vec,dtype=np.int64)
-#
-#nwl = len(chosen_pix)
-#nwl = (int)(nwl * (nwl-1)/2)
-#
-#### Create some data
-#Tbar_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat)
-#
-#### Calculate the variance based on the second-order accurate expansions
-#muTbar, sigTbar = compute_high_order_variance()
 
-### Calculate the variance based on the successive approximations to get an 
-### analytical expression
+def sfunction(N,R):
+    '''
+    Computes the summed term that appears in the calculation of the variance
+    under the approximation of evenly distributed wavelengths.
+    The analytical expression is computed with Mathematica
+    
+    Inputs:
+        - N: Number of wavelengths
+        - R: Wavelength range (lambda_max/lambda_min - 1)
+    '''
+    
+    return (1/360)*1/(N**2*R**2)*(12*np.euler_gamma*((-30)+(-60)*R+(-30) 
+  *((-1)+N)**(-2.)*(1+3*((-1)+N)*N)*R**2+30*(1+(-2)*N)*(( 
+  -1)+N)**(-2.)*N*R**3+((-1)+N)**(-4.)*(1+(-15)*((-1)+N)**2* 
+  N**2)*R**4)+N*(3*((-1)+N)**(-2.)*N*R**2*(120+R*(120+(( 
+  -1)+N)**(-2.)*(19+N*((-62)+39*N))*R))+2*np.pi**2*(30+R*(60+( 
+  (-1)+N)**(-1.)*R*((-30)+60*N+30*N*R+((-1)+N)**(-2.)*(1+N+ 
+  (-9)*N**2+6*N**3)*R**2))))+(-12)*(30+60*R+30*((-1)+N)**( 
+  -2)*(1+3*((-1)+N)*N)*R**2+30*((-1)+N)**(-2.)*N*((-1)+2* 
+  N)*R**3+((-1)+N)**(-4.)*((-1)+15*((-1)+N)**2*N**2)*R**4)* 
+  polygamma(0,1+N)+(-12)*N*(30+R*(60+((-1)+N)**(-1.)*R*((-30) 
+  +60*N+30*N*R+((-1)+N)**(-2.)*(1+N+(-9)*N**2+6*N**3)* 
+  R**2)))*polygamma(1,1+N));
+  
 
+
+def compute_approximate_variance(T0,sigma_I,w):
+    '''
+    Calculates the approximate variance from the successive approximations.
+    
+    '''
+    root = 'variance_calculations/'
+    wl_v1 = np.load(root+'wl_v1.npy')
+    wl_v0 = np.load(root+'wl_v0.npy')
+    
+    l0 = np.min(wl_v0)
+    lM = np.max(wl_v1)
+    
+    R = lM/l0-1
+    
+    
+    ul = np.unique(wl_v0)
+    Nwl = len(ul)+1
+    
+    print(Nwl,R)
+    
+    s = sfunction(Nwl,R)
+    
+    sigTbar = 8*sigma_I**2 / w*(T0*l0/sc.C2)**2 * s
+    
+    muTbar = 4*sigma_I**2 / w*(T0*l0/sc.C2)**2 * Nwl * (Nwl-1) * s
+    
+    return muTbar,np.sqrt(sigTbar)    
+
+### Input parameters
+nthat = 1000 # Number of samples for Monte-Carlo
+T0 = 3000
+sigma_I = 0.01
+
+# Wavelengths
+Rarray = np.logspace(-1,1,10)
+#Rarray = np.array([9])
+NvsR = []
+
+for Rapprox in  Rarray:   
+    wl_ratio = 10
+    lambda_0 = 300
+#    lambda_N = wl_ratio * lambda_0
+    lambda_N = (1+Rapprox) * lambda_0
+    
+    dlambda_prev = 100
+    for dlambda in np.arange(5,dlambda_prev,5)[::-1]:
+    #dlambda = 300 # Skip that many wavelengths
+        chosen_pix = np.arange(50,2950,dlambda)
+        #lambda_0 = 300
+        #lambda_N = 1100
+
+        wl_vec = np.linspace(lambda_0,lambda_N,(int)(3000))
+        
+        pix_vec = np.linspace(0,2999,3000)
+        pix_vec = np.array(pix_vec,dtype=np.int64)
+        
+        nwl = len(chosen_pix)
+        nwl = (int)(nwl * (nwl-1)/2)
+        
+        ### Create some data
+        Tbar_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat)
+        
+        muds,sigds = norm.fit(Tbar_ds)
+        
+        ### Calculate the variance based on the second-order accurate expansions
+        muTbar, sigTbar_accurate, ratio = compute_high_order_variance(T0,sigma_I,sc.window_length+1)
+        
+        ## Calculate the variance based on the successive approximations to get an 
+        ## analytical expression
+#        muTbar_approx, sigTbar_approx = compute_approximate_variance(T0,sigma_I,sc.window_length+1)
+
+#        err = (sigTbar_accurate - sigds)/sigds * 100
+#        err = np.abs(err)
+        print(len(chosen_pix),dlambda,ratio)
+        
+        if ratio > 0.1:
+            wl_v0 = np.load('variance_calculations/wl_v0.npy')
+            wl_v1 = np.load('variance_calculations/wl_v1.npy')
+            lam_0 = np.min(wl_v0)
+            lam_N = np.max(wl_v1)
+            Rtrue = lam_N / lam_0 - 1
+            Ntrue = len(chosen_pix)
+            
+            w = sc.window_length + 1
+            sigd = np.sqrt(2/w) * sigma_I
+            rlim = 0.1
+            Napprox = 1
+            Napprox += sc.C2 / (T0*lam_0) * Rtrue / (1+Rtrue)**2 * rlim / sigd
+            
+            res = [Rapprox,Rtrue,Ntrue,Napprox]
+            print(res)
+            NvsR.append(res)
+            dlambda_prev = dlambda
+            break
+
+plotarray = np.array(NvsR)
+plt.plot(plotarray[:,1],plotarray[:,2],'^')
+
+Rarray = np.logspace(-1,1,100)
+Nlim_continuous = 1 + sc.C2 / (T0*lam_0) * Rarray / (1+Rarray)**2 * rlim / sigd
+
+plt.plot(Rarray,Nlim_continuous,'k-')
+
+
+
+plt.figure()
+### PLOTS
+Tbnd = 0.02
+cnt,bins,_ = plt.hist( Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)],bins=100,normed=True,histtype='step')
+### Account for offset
+mu,sig = norm.fit(Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)]) 
+
+###mu = 0
+_ = plt.hist( norm.rvs(loc=muTbar,scale=sigTbar_accurate,size=10000),bins=bins,normed=True,histtype='step')
+#_ = plt.hist( norm.rvs(loc=muTbar_approx,scale=sigTbar_approx,size=10000),bins=bins,normed=True,histtype='step')
+
+#print(len(chosen_pix),mu,sig,muTbar_approx,sigTbar_approx,muTbar,sigTbar_accurate)
+
+##print(len(np.arange(50,2950,dlambda)),sig)
+#plt.xlim([-0.1,0.1])
 
 #
 #def doublesum(Nwl,lam_m,dlam):
@@ -279,17 +410,7 @@ def compute_high_order_variance(T0):
 #plt.ylim(-0.02, 50)
 #plt.xlim(-1,1)
 #
-#### PLOTS
-##cnt,bins,_ = plt.hist( Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)],bins=100,normed='True',histtype='step')
-#### Account for offset
-##mu,sig = norm.fit(Tave_dist[(Tave_dist<0.1) & (Tave_dist>-0.1)]) 
-####mu = 0
-##_ = plt.hist( norm.rvs(loc=mu,scale=sigdTbar,size=10000),bins=bins,normed='True',histtype='step')
-##siganalytic = sigdT(wl_v0,wl_v1,len(wl_v0),T)
-##_ = plt.hist( norm.rvs(loc=mu,scale=siganalytic,size=10000),bins=bins,normed=True,histtype='step')
-##
-###print(len(np.arange(50,2950,dlambda)),sig)
-##plt.xlim([-0.1,0.1])
+
 ##    
 #
 #### 

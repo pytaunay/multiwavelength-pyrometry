@@ -41,11 +41,11 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 f_eps = art_eps
 
 
-#I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
-#        wl_vec,T,pix_vec,f_eps)
+I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
+        wl_vec,T,pix_vec,f_eps)
 wl_sub_vec = wl_vec[pix_sub_vec]
 #chosen_pix =po. choose_pixels(pix_sub_vec,bin_method='average')
-chosen_pix = np.arange(50,2951,50)
+chosen_pix = np.arange(50,2951,10)
 cmb_pix = po.generate_combinations(chosen_pix,pix_sub_vec)
 
 bins = pix_vec[0::sc.pix_slice]
@@ -104,10 +104,10 @@ for k in range(L):
     dist_args = {"loc":0,"scale":std_array[k]}
     distributions.append({"type":dist_type,"kwargs":dist_args})
     
-#coefficients = 1/L*np.ones(L)
-coefficients = 1/std_array**2
+coefficients = 1/L*np.ones(L)
+#coefficients = 1/std_array**2
 coefficients /= coefficients.sum()      # in case these did not add up to 1
-sample_size = 3000
+sample_size = 10000
 
 num_distr = len(distributions)
 data = np.zeros((sample_size, num_distr))
@@ -122,26 +122,25 @@ sample = data[np.arange(sample_size), random_idx]
 sample_lo = sample[(sample>-0.5) & (sample<0.5)]
 dToT = (Tout-T)/T
 dToT_lo = dToT[(dToT > -0.5) & (dToT < 0.5)]
-
-#plt.hist(sample_lo, bins=100,normed=True)
-#plt.hist( (Tleft-T)/T,bins=100,normed=True,histtype='step')
-
-
+dToT_ds = np.random.choice(dToT_lo,size=sample_size) # Downsample to sample_size samples
 
 
 ### Kernel density
 # Find the best bandwidth for a Gaussian kernel density
 print("Calculate best kernel density bandwidth")
-bandwidths = 10 ** np.linspace(-4, 0, 50)
+bandwidths = 10 ** np.linspace(-3, -2, 100)
 grid_dToT = GridSearchCV(KernelDensity(kernel='gaussian'),
                     {'bandwidth': bandwidths},
-                    cv=LeaveOneOut(len(dToT_lo)))
-grid_dToT.fit(dToT_lo[:, None]);
+                    cv=5,
+                    verbose = 1)
+grid_dToT.fit(dToT_ds[:, None]);
 print('dToT best params:',grid_dToT.best_params_)
 
+bandwidths = 10 ** np.linspace(-3, -1, 100)
 grid_sample = GridSearchCV(KernelDensity(kernel='gaussian'),
                     {'bandwidth': bandwidths},
-                    cv=LeaveOneOut(len(sample_lo)))
+                    cv=5,
+                    verbose = 1)
 grid_sample.fit(sample_lo[:, None]);
 print('Sample best params:',grid_sample.best_params_)
 
@@ -174,6 +173,8 @@ plt.ylim(-0.02, 50)
 plt.xlim(-1,1)
 
 
+### TODO
+### CHECK THE DISTRIBUTION FOR TAVERAGE AND FOR THE T_HATs
 
 #plt.show()
 

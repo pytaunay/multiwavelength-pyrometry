@@ -94,32 +94,32 @@ print("Calculate distribution mixture")
 sigma_I = 0.1 # Error on intensity
 std_array = np.sqrt(2) * np.abs(T / (sc.C2*(1/wl_v1-1/wl_v0)) * sigma_I)
 
-# Form a dictionary of distributions
-distributions = []
-L = len(wl_v1)
-for k in range(L):
-    if(np.mod(k,10000)==0):
-        print(k)
-    dist_type = np.random.normal
-    dist_args = {"loc":0,"scale":std_array[k]}
-    distributions.append({"type":dist_type,"kwargs":dist_args})
-    
-coefficients = 1/L*np.ones(L)
-#coefficients = 1/std_array**2
-coefficients /= coefficients.sum()      # in case these did not add up to 1
-sample_size = 10000
-
-num_distr = len(distributions)
-data = np.zeros((sample_size, num_distr))
-for idx, distr in enumerate(distributions):
-    data[:, idx] = distr["type"](size=(sample_size,), **distr["kwargs"])
-    
-random_idx = np.random.choice(np.arange(num_distr), 
-                              size=(sample_size,), 
-                              p=coefficients)
-
-sample = data[np.arange(sample_size), random_idx]
-sample_lo = sample[(sample>-0.5) & (sample<0.5)]
+## Form a dictionary of distributions
+#distributions = []
+#L = len(wl_v1)
+#for k in range(L):
+#    if(np.mod(k,10000)==0):
+#        print(k)
+#    dist_type = np.random.normal
+#    dist_args = {"loc":0,"scale":std_array[k]}
+#    distributions.append({"type":dist_type,"kwargs":dist_args})
+#    
+#coefficients = 1/L*np.ones(L)
+##coefficients = 1/std_array**2
+#coefficients /= coefficients.sum()      # in case these did not add up to 1
+#sample_size = 10000
+#
+#num_distr = len(distributions)
+#data = np.zeros((sample_size, num_distr))
+#for idx, distr in enumerate(distributions):
+#    data[:, idx] = distr["type"](size=(sample_size,), **distr["kwargs"])
+#    
+#random_idx = np.random.choice(np.arange(num_distr), 
+#                              size=(sample_size,), 
+#                              p=coefficients)
+#
+#sample = data[np.arange(sample_size), random_idx]
+#sample_lo = sample[(sample>-0.5) & (sample<0.5)]
 dToT = (Tout-T)/T
 dToT_lo = dToT[(dToT > -0.5) & (dToT < 0.5)]
 dToT_ds = np.random.choice(dToT_lo,size=sample_size) # Downsample to sample_size samples

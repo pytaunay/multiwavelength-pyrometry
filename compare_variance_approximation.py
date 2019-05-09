@@ -16,7 +16,7 @@ from sklearn.neighbors import KernelDensity
 from sklearn.grid_search import GridSearchCV
 
 
-def generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
+def generate_Taverage_distribution(T0,wl_vec,pix_vec,nwl,nthat):
     '''
     This function generates a distribution of errors. The errors are between
     the true temperature and the one calculated with the variance method.
@@ -24,7 +24,7 @@ def generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
         - T0: true temperature
         - wl_vec: the vector of wavelengths
         - pix_vec: the vector of pixels
-        - dlambda: the number of wavelengths to skip
+        - nwl: the number of wavelengths to consider
         - nthat: number of Monte-Carlo sample to generate
     
     '''
@@ -41,7 +41,10 @@ def generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
         
         I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
                 wl_vec,T0,pix_vec,gr_eps)
-        chosen_pix = np.arange(50,2950,dlambda)
+#        chosen_pix = np.arange(50,2950,dlambda)
+        chosen_pix = np.linspace(50,2949,nwl)
+        chosen_pix = np.array(chosen_pix,dtype=np.int64)
+        
         cmb_pix = po.generate_combinations(chosen_pix,pix_sub_vec)
         
         bins = pix_vec[0::sc.pix_slice]
@@ -57,6 +60,8 @@ def generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat):
         ### Calculate intensity ratio
         logIi = filtered_data[cmb_pix[:,0]-sc.window_length]
         logIj = filtered_data[cmb_pix[:,1]-sc.window_length]
+#        logIi = np.log10(noisy_data)[cmb_pix[:,0]-sc.window_length]
+#        logIj = np.log10(noisy_data)[cmb_pix[:,1]-sc.window_length]
     
         logR = np.log(10)*(logIi-logIj)
         
@@ -192,7 +197,7 @@ def compute_high_order_variance(T0,sigma_I,w):
     sigTbar = 1/Ncomb**2 * np.sum(sigThat**2)
     sigTbar = np.sqrt(sigTbar)
     
-    return muTbar,sigTbar,ratio
+    return muTbar,sigTbar,ratio,muThat,sigThat
 
 
 
@@ -256,8 +261,8 @@ T0 = 3000
 sigma_I = 0.01
 
 # Wavelengths
-Rarray = np.logspace(-1,1,10)
-#Rarray = np.array([9])
+#Rarray = np.logspace(-1,1,10)
+Rarray = np.array([9])
 NvsR = []
 
 for Rapprox in  Rarray:   
@@ -266,10 +271,27 @@ for Rapprox in  Rarray:
 #    lambda_N = wl_ratio * lambda_0
     lambda_N = (1+Rapprox) * lambda_0
     
-    dlambda_prev = 100
-    for dlambda in np.arange(5,dlambda_prev,5)[::-1]:
-    #dlambda = 300 # Skip that many wavelengths
-        chosen_pix = np.arange(50,2950,dlambda)
+#    dlambda_prev = 100
+    # Number of wavelengths to test
+
+    ### Approximate the starting point   
+    w = sc.window_length + 1
+    sigd = np.sqrt(2/w) * sigma_I
+    rlim = 0.1
+    Napprox = 1
+    Napprox += sc.C2 / (T0*lambda_0) * Rapprox / (1+Rapprox)**2 * rlim / sigd
+    Napprox -= 5
+    
+    nwl_array = np.arange(Napprox,1000,1)
+    nwl_array = np.array(nwl_array,dtype=np.int64)
+    print("Napprox = ", Napprox)
+
+    for nwl in nwl_array:
+#        chosen_pix = np.arange(50,2950,dlambda)
+        #     
+        chosen_pix = np.linspace(50,2949,nwl)
+        chosen_pix = np.array(chosen_pix,dtype=np.int64)
+               
         #lambda_0 = 300
         #lambda_N = 1100
 
@@ -278,30 +300,35 @@ for Rapprox in  Rarray:
         pix_vec = np.linspace(0,2999,3000)
         pix_vec = np.array(pix_vec,dtype=np.int64)
         
-        nwl = len(chosen_pix)
-        nwl = (int)(nwl * (nwl-1)/2)
+        ncomb = len(chosen_pix)
+        ncomb = (int)(nwl * (nwl-1)/2)
         
         ### Create some data
-        Tbar_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,dlambda,nthat)
-        
+        Tbar_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,nwl,nthat)
         muds,sigds = norm.fit(Tbar_ds)
         
         ### Calculate the variance based on the second-order accurate expansions
-        muTbar, sigTbar_accurate, ratio = compute_high_order_variance(T0,sigma_I,sc.window_length+1)
+        muTbar, sigTbar_accurate, ratio, muThat, sigThat = compute_high_order_variance(T0,sigma_I,sc.window_length+1)
         
         ## Calculate the variance based on the successive approximations to get an 
         ## analytical expression
 #        muTbar_approx, sigTbar_approx = compute_approximate_variance(T0,sigma_I,sc.window_length+1)
 
-#        err = (sigTbar_accurate - sigds)/sigds * 100
-#        err = np.abs(err)
-        print(len(chosen_pix),dlambda,ratio)
+        
+        wl_v0 = np.load('variance_calculations/wl_v0.npy')
+        wl_v1 = np.load('variance_calculations/wl_v1.npy')
+        lam_0 = np.min(wl_v0)
+        lam_N = np.max(wl_v1)
+        
+        dlambda = lam_N - lam_0
+        dlambda /= (nwl - 1)
+            
+        err = (sigTbar_accurate - sigds)/sigds * 100
+        err = np.abs(err)
+        print(nwl,dlambda,ratio,err)
         
         if ratio > 0.1:
-            wl_v0 = np.load('variance_calculations/wl_v0.npy')
-            wl_v1 = np.load('variance_calculations/wl_v1.npy')
-            lam_0 = np.min(wl_v0)
-            lam_N = np.max(wl_v1)
+
             Rtrue = lam_N / lam_0 - 1
             Ntrue = len(chosen_pix)
             
@@ -317,14 +344,17 @@ for Rapprox in  Rarray:
             dlambda_prev = dlambda
             break
 
+fig, ax = plt.subplots(2,1,sharex=True)
 plotarray = np.array(NvsR)
-plt.plot(plotarray[:,1],plotarray[:,2],'^')
+ax[0].plot(plotarray[:,1],plotarray[:,2],'^')
 
 Rarray = np.logspace(-1,1,100)
 Nlim_continuous = 1 + sc.C2 / (T0*lam_0) * Rarray / (1+Rarray)**2 * rlim / sigd
 
-plt.plot(Rarray,Nlim_continuous,'k-')
+ax[0].plot(Rarray,Nlim_continuous,'k-')
 
+err_percent = np.array([10.2,26.0,36.8,41.6,45,45,38.3,32.1,24.4,12.0])
+ax[1].plot(Rarray,err_percent,'^')
 
 
 plt.figure()

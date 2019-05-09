@@ -136,13 +136,13 @@ grid_dToT = GridSearchCV(KernelDensity(kernel='gaussian'),
 grid_dToT.fit(dToT_ds[:, None]);
 print('dToT best params:',grid_dToT.best_params_)
 
-bandwidths = 10 ** np.linspace(-3, -1, 100)
-grid_sample = GridSearchCV(KernelDensity(kernel='gaussian'),
-                    {'bandwidth': bandwidths},
-                    cv=5,
-                    verbose = 1)
-grid_sample.fit(sample_lo[:, None]);
-print('Sample best params:',grid_sample.best_params_)
+#bandwidths = 10 ** np.linspace(-3, -1, 100)
+#grid_sample = GridSearchCV(KernelDensity(kernel='gaussian'),
+#                    {'bandwidth': bandwidths},
+#                    cv=5,
+#                    verbose = 1)
+#grid_sample.fit(sample_lo[:, None]);
+#print('Sample best params:',grid_sample.best_params_)
 
 
 ## Instantiate and fit the KDE model
@@ -151,14 +151,14 @@ kde_dToT = KernelDensity(bandwidth=grid_dToT.best_params_['bandwidth'],
                     kernel='gaussian')
 kde_dToT.fit(dToT_lo[:, None])
 
-kde_sample = KernelDensity(bandwidth=grid_sample.best_params_['bandwidth'], 
-                    kernel='gaussian')
-kde_sample.fit(sample_lo[:, None])
+#kde_sample = KernelDensity(bandwidth=grid_sample.best_params_['bandwidth'], 
+#                    kernel='gaussian')
+#kde_sample.fit(sample_lo[:, None])
 
 # Score_samples returns the log of the probability density
-x_d = np.linspace(-0.5,0.5,1000)
+x_d = np.linspace(-0.02,0.02,1000)
 logprob_dToT = kde_dToT.score_samples(x_d[:, None])
-logprob_sample = kde_sample.score_samples(x_d[:, None])
+#logprob_sample = kde_sample.score_samples(x_d[:, None])
 
 ### Plots
 plt.hist(dToT_lo,bins=100,normed=True,histtype='step')
@@ -166,8 +166,8 @@ plt.hist(dToT_lo,bins=100,normed=True,histtype='step')
 plt.fill_between(x_d, np.exp(logprob_dToT), alpha=0.5)
 plt.plot(dToT, np.full_like(dToT, -0.01), '|k', markeredgewidth=1)
 
-plt.fill_between(x_d, np.exp(logprob_sample), alpha=0.5)
-plt.plot(sample, np.full_like(sample, -0.02), '|b', markeredgewidth=1)
+#plt.fill_between(x_d, np.exp(logprob_sample), alpha=0.5)
+#plt.plot(sample, np.full_like(sample, -0.02), '|b', markeredgewidth=1)
 
 plt.ylim(-0.02, 50)
 plt.xlim(-1,1)

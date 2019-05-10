@@ -264,38 +264,6 @@ for idx,dist in enumerate(data['distall'].T):
     ncauchy = cauchy.pdf(x_d,loc=loc,scale=scale)
 #    plt.plot(x_d,cauchyval,'--')
     
-#    ### Compute muD, sigmaD, Teq
-#    sigD = np.sqrt(2)*sigma_I
-#    Tave = data['Tbar'][idx]
-#    wl_v1 = data['wl_v1']
-#    wl_v0 = data['wl_v0']
-#    ncomb = len(wl_v1)
-#    
-#    eps0 = f_eps(wl_v0,1)
-#    eps1 = f_eps(wl_v1,1)
-#    Ii = wien_approximation(wl_v0,Tave,f_eps)
-#    Ij = wien_approximation(wl_v1,Tave,f_eps)
-#    
-#    muD = np.log(Ii) - np.log(Ij) - 5*np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
-#    Teq = sc.C2 * (1/wl_v1-1/wl_v0)
-#    Teq /= muD
-#    
-#    ### Compute muThat, sigThat
-#    muThat = Teq / Tave
-#    sigThat = np.abs(Teq / Tave * sigD / muD)
-#        
-#    ### Setup the mixture distribution
-#    pdf_mixture = lambda x: np.sum(1/ncomb * 1/sigThat * 1/np.sqrt(2*np.pi) * np.exp(-1/2*(x-(muThat-1))**2/sigThat**2))
-#    
-#    ### Setup the Cauchy distribution
-#    gamma = ncomb * np.sqrt(2/np.pi) * 1/np.sum(1/sigThat)
-#    pdf_cauchy = lambda x: 1/(np.pi*gamma) * gamma**2 / ((x-xmax)**2 + gamma**2)
-#    
-#    ### Numerically evaluate the distributions
-#    ncauchy = pdf_cauchy(x_d)
-#    nmixture = [pdf_mixture(x) for x in x_d]
-#    nmixture = np.array(nmixture)
-    
     
     boolidx = pdfkde > 1e-8
     eta = np.sum((ncauchy[boolidx]/pdfkde[boolidx] - 1 )**2)

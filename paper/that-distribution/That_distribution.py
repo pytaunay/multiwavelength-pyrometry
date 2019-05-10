@@ -243,37 +243,30 @@ for idx,dist in enumerate(data['distall'].T):
                         n_jobs = -2)
     grid.fit(dist_filt[:, None])
     
-    
-    
     ### KDE representation
     kde = KernelDensity(bandwidth=grid.best_params_['bandwidth'], 
                         kernel='gaussian')
     kde.fit(dist_filt[:, None])
     x_d = np.linspace(dmin,dmax,1000)
-#    
+    
     logprob_kde = kde.score_samples(x_d[:, None])
     pdfkde = np.exp(logprob_kde)
     
     # Location of the maximum of the PDF
     xmax = x_d[np.argmax(pdfkde)]
-    
-#    plt.plot(x_d,pdfkde)
-    
-    ### Fit a Cauchy distribution and calculate distance
+        
+    ### Fit a Cauchy distribution 
     loc,scale = cauchy.fit(dist_filt)
     ncauchy = cauchy.pdf(x_d,loc=loc,scale=scale)
-#    plt.plot(x_d,cauchyval,'--')
     
-    
+    ### Calculate distance
+    # Avoid divisions by zero
     boolidx = pdfkde > 1e-8
     eta = np.sum((ncauchy[boolidx]/pdfkde[boolidx] - 1 )**2)
     
     etavec[idx] = eta
     
-#    p = plt.plot(x_d,pdfkde)
-#    plt.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
+    p = plt.plot(x_d,pdfkde)
+    plt.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
     
     print(idx,dmin,dmax,np.abs(np.mean(dist)),grid.best_params_['bandwidth'],eta)
-#    print(idx,dmin,dmax,np.abs(np.mean(dist)),eta)
-    
-#    plt.hist(dist,bins=100,normed=True,histtype='step')

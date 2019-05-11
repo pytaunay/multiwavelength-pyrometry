@@ -36,12 +36,15 @@ from sklearn.neighbors import KernelDensity
 from sklearn.grid_search import GridSearchCV
 
 # Local
-import spectropyrometer_constants as sc
-import generate_spectrum as gs
+#import spectropyrometer_constants as sc
+#import generate_spectrum as gs
+#
+#import pixel_operations as po
+#
+#from statistics import tukey_fence
 
-import pixel_operations as po
-
-from statistics import tukey_fence
+C1 = 1.191e16 # W/nm4/cm2 Sr
+C2 = 1.4384e7 # nm K
 
 ### Function definitions
 def wien_approximation(wl,T,f_eps):    
@@ -56,7 +59,7 @@ def wien_approximation(wl,T,f_eps):
     '''
     eps = f_eps(wl,T) # Emissivity
     
-    return eps * sc.C1 / wl**5 * np.exp(-sc.C2/(T*wl))
+    return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
 
 
 def generate_That_distributions(sigma_I, T0,
@@ -136,14 +139,14 @@ def generate_That_distributions(sigma_I, T0,
     
         invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
         That = 1/invT
-        That *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
+        That *= C2 * ( 1/wl_v1 - 1/wl_v0)
           
         # Filter out some crazy values
 #        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
         
         ### Average of all Thats is the estimate of the true temperature
         Tave = np.average(That)
-#        print(idx,Tave)
+        print(idx,Tave)
     
         ### Distribution of Thats
         dThat_dist = (That - Tave)/Tave
@@ -181,7 +184,7 @@ wl_vec = np.linspace(lambda1,lambdaN,nwl)
 f_eps_true = lambda wl,T: 0.5 * np.ones(len(wl))
    
 # Test emissivity
-neps = 3
+neps = 10
 t1 = np.linspace(0.1,1,neps)
 tn = t1[::-1]
 
@@ -200,73 +203,113 @@ bvec /= (lambdaN-lambda1)
 
 f_eps_test = lambda idx,wl,T: mvec[idx] * wl + bvec[idx]
 
-### Generate the That distributions
-data = generate_That_distributions(sigma_I,T0,wl_vec,nwl,f_eps_true,f_eps_test,neps)
+### Generate data that many times
+ntest = 1
+etaall = np.zeros((neps+1,ntest))
+errall = np.zeros((neps+1,ntest))
 
-etavec = np.zeros(neps+1)
 
-### Best T prediction
-err = 100 * (data['Tbar']/T0-1)
-err = np.abs(err)
-bidx = np.argmin(err)
 
-print(bidx, err[bidx], data['Tbar'][bidx])
-
-for idx,dist in enumerate(data['distall'].T):
-    f_eps = lambda wl,T: f_eps_test(idx,wl,T)
-    Tave = data['Tbar'][idx]
+for testidx in range(ntest):
+    ### Generate the That distributions
+    data = generate_That_distributions(sigma_I,T0,wl_vec,nwl,f_eps_true,f_eps_test,neps)
     
-    ### Remove extreme values
-    dmin = -0.1
-    dmax = 0.1
-    dist_filt = dist[(dist<dmax) & (dist>dmin)]
-    dist_filt *= Tave
-    dist_filt += Tave
+    etavec = np.zeros(neps+1)
+    scalevec = np.zeros(neps+1)
+    varvec = np.zeros(neps+1)
     
-    dmin = 1000
-    dmax = 5000
+    ### Best T prediction
+    err = 100 * (data['Tbar']/T0-1)
+    err = np.abs(err)
+    bidx = np.argmin(err)
     
-    if len(dist_filt) < 2 or Tave < 0:
-        etavec[idx] = 1e5
-        continue
+    errall[:,testidx] = np.copy(err)
     
-#    dist_filt = dist
-#    dmin = np.min(dist_filt)
-#    dmax = np.max(dist_filt)
+    print(bidx, err[bidx], data['Tbar'][bidx])
     
-    ### Find the best bandwidth for KDE
-    bandwidths = 10 ** np.linspace(1,2, 100)
-    grid = GridSearchCV(KernelDensity(kernel='gaussian'),
-                        {'bandwidth': bandwidths},
-                        cv=5,
-                        verbose = 1,
-                        n_jobs = -2)
-    grid.fit(dist_filt[:, None])
-    
-    ### KDE representation
-    kde = KernelDensity(bandwidth=grid.best_params_['bandwidth'], 
-                        kernel='gaussian')
-    kde.fit(dist_filt[:, None])
-    x_d = np.linspace(dmin,dmax,1000)
-    
-    logprob_kde = kde.score_samples(x_d[:, None])
-    pdfkde = np.exp(logprob_kde)
-    
-    # Location of the maximum of the PDF
-    xmax = x_d[np.argmax(pdfkde)]
+    for idx,dist in enumerate(data['distall'].T):
+        f_eps = lambda wl,T: f_eps_test(idx,wl,T)
+        Tave = data['Tbar'][idx]
         
-    ### Fit a Cauchy distribution 
-    loc,scale = cauchy.fit(dist_filt)
-    ncauchy = cauchy.pdf(x_d,loc=loc,scale=scale)
+        ### Remove extreme values
+        dmin = -0.5
+        dmax = 0.5
+        
+        dist_filt = np.copy(dist)
+        dist_filt *= Tave
+        dist_filt += Tave
+        
+        dmin = 1000
+        dmax = 5000
+        
+        dist_filt = dist_filt[(dist_filt<dmax) & (dist_filt>dmin)]
+        
+        if len(dist_filt) < 2 or Tave < 0:
+            etavec[idx] = 1e10
+            continue
+        
+    #    dist_filt = dist
+    #    dmin = np.min(dist_filt)
+    #    dmax = np.max(dist_filt)
+        
+#    try:
+        
+        ### Find the best bandwidth for KDE
+        bandwidths = 10 ** np.linspace(0,2,200)
+        grid = GridSearchCV(KernelDensity(kernel='gaussian'),
+                            {'bandwidth': bandwidths},
+                            cv=5,
+                            verbose = 1,
+                            n_jobs = -2)
+        grid.fit(dist_filt[:, None])
+        
+        ### KDE representation
+        kde = KernelDensity(bandwidth=grid.best_params_['bandwidth'], 
+                            kernel='gaussian')
+        kde.fit(dist_filt[:, None])
+        x_d = np.linspace(dmin,dmax,500)
+        
+        logprob_kde = kde.score_samples(x_d[:, None])
+        pdfkde = np.exp(logprob_kde)
+        
+        # Location of the maximum of the PDF
+        xmax = x_d[np.argmax(pdfkde)]
+            
+        ### Fit a Cauchy distribution 
+        loc,scale = cauchy.fit(dist_filt)
+        ncauchy = cauchy.pdf(x_d,loc=loc,scale=scale)
+        
+        ### Calculate distance
+        # Avoid divisions by zero
+        boolidx = pdfkde > 1e-8
+        
+        # Total sum of squares
+        tss = np.sum((ncauchy[boolidx] - np.mean(pdfkde[boolidx]))**2)
+        # Residual sum of squares
+        rss = np.sum((ncauchy[boolidx] - pdfkde[boolidx])**2)
+#            eta = np.sum((ncauchy[boolidx]/pdfkde[boolidx] - 1 )**2)
+#            eta = np.sqrt(eta)
+        eta = 1 - rss/tss
+        
+        etavec[idx] = eta
+        scalevec[idx] = 2*scale
+        
+        pdfpeak = np.argmax(pdfkde)
+        fwhm = np.max(x_d[pdfkde>pdfkde[pdfpeak]/2])
+        fwhm -= np.min(x_d[pdfkde>pdfkde[pdfpeak]/2])
+        varvec[idx] = fwhm
+        
+#        except:
+#            etavec[idx] = 0
+#            continue
+        
+        p = plt.plot(x_d,pdfkde)
+        plt.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
+        
+        print(idx,dmin,dmax,np.abs(np.mean(dist)),grid.best_params_['bandwidth'],eta,2*scale,fwhm)
+
+    etaall[:,testidx] = np.copy(etavec)
     
-    ### Calculate distance
-    # Avoid divisions by zero
-    boolidx = pdfkde > 1e-8
-    eta = np.sum((ncauchy[boolidx]/pdfkde[boolidx] - 1 )**2)
+
+
     
-    etavec[idx] = eta
-    
-    p = plt.plot(x_d,pdfkde)
-    plt.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
-    
-    print(idx,dmin,dmax,np.abs(np.mean(dist)),grid.best_params_['bandwidth'],eta)

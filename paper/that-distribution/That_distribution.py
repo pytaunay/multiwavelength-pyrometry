@@ -91,8 +91,8 @@ def tukey_fence(Tvec, method='cv'):
     T_iqr = iqr(Tvec)
     T_qua = np.percentile(Tvec,[25,75])
     
-    min_T = T_qua[0] - 1.25*T_iqr
-    max_T = T_qua[1] + 1.25*T_iqr
+    min_T = T_qua[0] - 1.5*T_iqr
+    max_T = T_qua[1] + 1.5*T_iqr
     
     T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
     
@@ -143,10 +143,14 @@ def generate_That_distributions(sigma_I, T0,
     
     # Filter
 #    log_noisy = moving_average(log_noisy,wdw)
-    log_noisy = log_noisy[wdwo2:-wdwo2]
-    
-    # Rearrange the indices
-    lwl_vec = wl_vec[wdwo2:-wdwo2]
+    if wdwo2 > 0:
+        log_noisy = log_noisy[wdwo2:-wdwo2]
+        
+        # Rearrange the indices
+        lwl_vec = wl_vec[wdwo2:-wdwo2]
+    else:
+        lwl_vec = np.copy(wl_vec)
+
     
     ### Index of the vectors
     idx = np.arange(0,nwl,1)
@@ -185,6 +189,7 @@ def generate_That_distributions(sigma_I, T0,
     data['T0'] = T0
     data['true_eps'] = f_eps_true
     data['Tbar'] = np.zeros(neps+1)
+    data['metric'] = np.zeros(neps+1)
     
     
     ### For each test emissivity, create a distribution of Thats
@@ -200,6 +205,7 @@ def generate_That_distributions(sigma_I, T0,
           
         # Filter out some crazy values
         Tave, Tstd, Tmetric, Tleft = tukey_fence(That, method = 'dispersion')
+#        Tleft = np.copy(That)
         
         ### Average of all Thats is the estimate of the true temperature
         Tave = np.average(Tleft)
@@ -209,6 +215,7 @@ def generate_That_distributions(sigma_I, T0,
         dThat_dist = (That - Tave)/Tave
         distall[:,idx] = np.copy(dThat_dist)
         data['Tbar'][idx] = Tave
+        data['metric'][idx] = Tmetric
     
     data['distall'] = distall
 #    ### Write data to disk
@@ -238,7 +245,7 @@ wlrange = 1.46
 lambda1 = 300 # nm
 lambdaN = (1+wlrange)*lambda1
 nwl = 50
-wdw = 21 # window size
+wdw = 51 # window size
 wdwo2 = (int)((wdw-1)/2)
 
 wl_vec = np.linspace(lambda1,lambdaN,nwl)
@@ -255,7 +262,7 @@ wl_vec = np.linspace(lambda1 - wdwo2 * dlambda,
 f_eps_true = lambda wl,T: 0.5 * np.ones(len(wl))
    
 # Test emissivities
-neps = 100
+neps = 50
 t1 = np.linspace(0.1,1,neps)
 tn = t1[::-1]
 
@@ -280,14 +287,14 @@ tn = t1[::-1]
 #mvec = np.array(mvec)
 #bvec = np.array(bvec)
 #        
-#
-#eps1vec = np.zeros(neps+1)
-#epsnvec = np.zeros(neps+1)
-#eps1vec[:-1] = t1
-#eps1vec[-1] = 0.5
-#
-#epsnvec[:-1] = tn
-#epsnvec[-1] = 0.5
+
+eps1vec = np.zeros(neps+1)
+epsnvec = np.zeros(neps+1)
+eps1vec[:-1] = t1
+eps1vec[-1] = 0.5
+
+epsnvec[:-1] = tn
+epsnvec[-1] = 0.5
 
 eps1vec = np.zeros(neps+1)
 epsnvec = np.zeros(neps+1)
@@ -306,6 +313,32 @@ bvec = lambdaM * eps1vec - lambdam * epsnvec
 bvec /= (lambdaM-lambdam)
 
 f_eps_test = lambda idx,wl,T: mvec[idx] * wl + bvec[idx]
+
+
+## Order 2 test functions
+#eps1 = np.linspace(1,0.1,neps)
+#epsN = np.linspace(1,0.1,neps)
+#epsmid = np.linspace(0.1,1,neps)
+#avec = np.zeros(neps+1)
+#bvec = np.zeros(neps+1)
+#cvec = np.zeros(neps+1)
+#
+#lvec = np.array([lambdam,(lambdaM+lambdam)/2,lambdaM])
+#for idx in range(neps):
+#    epsv = np.array([eps1[idx],epsmid[idx],epsN[idx]])
+#    p = np.polyfit(lvec,epsv,2)
+#    
+#    avec[idx] = p[0]
+#    bvec[idx] = p[1]
+#    cvec[idx] = p[2]
+#
+#avec[-1] = 0
+#bvec[-1] = 0
+#cvec[-1] = 0.5
+#    
+#f_eps_test = lambda idx,wl,T: avec[idx] * wl**2 + bvec[idx] * wl + cvec[idx]
+    
+
 
 ### Generate data that many times
 ntest = 100
@@ -352,7 +385,7 @@ for testidx in range(ntest):
 #        dmax = 5000
         
 #        dist_filt = dist_filt[(dist_filt<dmax) & (dist_filt>dmin)]
-        Tave, Tstd, metric, dist_filt = tukey_fence(dist_filt,'dispersion')
+#        Tave, Tstd, metric, dist_filt = tukey_fence(dist_filt,'dispersion')
         
         dmin = np.min(dist_filt)
         dmax = np.max(dist_filt)
@@ -370,7 +403,7 @@ for testidx in range(ntest):
         
         if distribution_plots:
             ### Find the best bandwidth for KDE
-            bandwidths = 10 ** np.linspace(0,2,200)
+            bandwidths = 10 ** np.linspace(0,3,200)
             grid = GridSearchCV(KernelDensity(kernel='gaussian'),
                                 {'bandwidth': bandwidths},
                                 cv=5,
@@ -407,7 +440,7 @@ for testidx in range(ntest):
         
 #        etavec[idx] = eta
         scalevec[idx] = 2*scale
-        varvec[idx] = metric
+        varvec[idx] = data['metric'][idx]
         
 #        pdfpeak = np.argmax(pdfkde)
 #        fwhm = np.max(x_d[pdfkde>pdfkde[pdfpeak]/2])
@@ -419,8 +452,9 @@ for testidx in range(ntest):
 #            continue
         
         if distribution_plots:
+            print(idx,dmin,dmax,np.abs(np.mean(dist)),grid.best_params_['bandwidth'],data['metric'][idx])
             p = plt.plot(x_d,pdfkde)
-            plt.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
+#            plt.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
         
 #        print(idx,dmin,dmax,np.abs(np.mean(dist)),grid.best_params_['bandwidth'],eta,2*scale,fwhm)
 #        print(idx,dmin,dmax,np.abs(np.mean(dist)),2*scale)
@@ -429,12 +463,15 @@ for testidx in range(ntest):
     scaleall[:,testidx] = np.copy(scalevec)
     varall[:,testidx] = np.copy(varvec)
 
+bidx = (scaleall==0)|(scaleall<0)
+scaleall[bidx] = np.nan
+errall[bidx] = np.nan
+varall[bidx] = np.nan
 
-scaleall[scaleall==0] = np.nan
-errall[scaleall==0] = np.nan
 
 mean = np.nanmean(scaleall,axis=1)
 errplt = np.nanmean(errall,axis=1)
+displt = np.nanmean(varall,axis=1)
 
 #plt.scatter(mean,errplt, 
 #            c = np.linspace(0,1,len(mean)), 
@@ -442,10 +479,12 @@ errplt = np.nanmean(errall,axis=1)
 #            cmap = "plasma")
 
 #plt.plot(np.mean(varall,axis=1)[:-1],errplt[:-1])
-plt.scatter(np.mean(varall,axis=1),errplt, 
+plt.figure()
+#plt.plot(np.mean(varall,axis=1),errplt,'k.')
+plt.scatter(displt,errplt, 
             c = mvec, 
             cmap = "Spectral")
 
-plt.plot(np.mean(varall,axis=1)[-1],errplt[-1],'k*',markersize=12)
+plt.plot(displt[-1],errplt[-1],'k*',markersize=12)
 plt.xlabel('Dispersion')
 plt.ylabel('Error from true temperature (%)')

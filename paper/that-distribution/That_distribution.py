@@ -27,7 +27,10 @@ We assume a correct emissivity of 0.5.
 ### Impots
 # Numpy, matplotlib, scipy
 import numpy as np
+
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
 from scipy.stats import cauchy
 from scipy.stats import iqr
 
@@ -211,8 +214,8 @@ def generate_That_distributions(sigma_I, T0,
 
 ### Define our core case
 # Controls
-distribution_plots = True  
-test_emissivity_order = 1  
+plot_cauchy = True # Enable / disable the plot of the Cauchy distribution fit
+test_emissivity_order = 1 # Control the order of the emissivity model
 
 # Noise
 sigma_I = 0.1
@@ -242,10 +245,12 @@ wl_vec = np.linspace(lambda1 - wdwo2 * dlambda,
 f_eps_true = lambda wl,T: 0.5 * np.ones(len(wl))
    
 # Test emissivities
-neps = 5
+neps = 5 # Total number of emissivity function to try and display
+epsm = 0.01 # Minimum emissivty
+epsM = 1 # Maximum emissivity
 
 if test_emissivity_order == 1:  
-    t1 = np.linspace(0.1,1,neps)
+    t1 = np.linspace(epsm,epsM,neps)
     tn = t1[::-1]
     eps1vec = np.zeros(neps+1)
     epsnvec = np.zeros(neps+1)
@@ -275,9 +280,9 @@ if test_emissivity_order == 1:
 
 elif test_emissivity_order == 2:
 ## Order 2 test functions
-    eps1 = np.linspace(1,0.1,neps)
-    epsN = np.linspace(1,0.1,neps)
-    epsmid = np.linspace(0.1,1,neps)
+    eps1 = np.linspace(epsM,epsm,neps)
+    epsN = np.linspace(epsM,epsm,neps)
+    epsmid = np.linspace(epsm,epsM,neps)
     avec = np.zeros(neps+1)
     bvec = np.zeros(neps+1)
     cvec = np.zeros(neps+1)
@@ -301,9 +306,12 @@ elif test_emissivity_order == 2:
 data = generate_That_distributions(sigma_I,T0,wl_vec,nwl,wdw,wdwo2,
                                    f_eps_true,f_eps_test,neps)
 
+fig, ax = plt.subplots()
+axins = inset_axes(ax, width="30%", height="30%", loc=2, borderpad=5)
+
 ### For all emissivities...
 maxpdf = 0
-for idx,dist in enumerate(data['distall'].T):
+for idx,dist in enumerate((data['distall'].T)[:-1]):
     f_eps = lambda wl,T: f_eps_test(idx,wl,T)
     Tave = data['Tbar'][idx]
        
@@ -321,23 +329,22 @@ for idx,dist in enumerate(data['distall'].T):
     
     x_d = np.linspace(dmin,dmax,500)
     
-    if distribution_plots:
-        ### Find the best bandwidth for KDE
-        bandwidths = 10 ** np.linspace(0,3,200)
-        grid = GridSearchCV(KernelDensity(kernel='gaussian'),
-                            {'bandwidth': bandwidths},
-                            cv=5,
-                            verbose = 1,
-                            n_jobs = -2)
-        grid.fit(dist_filt[:, None])
-    
-        ### KDE representation
-        kde = KernelDensity(bandwidth=grid.best_params_['bandwidth'], 
-                            kernel='gaussian')
-        kde.fit(dist_filt[:, None])
+    ### Find the best bandwidth for KDE
+    bandwidths = 10 ** np.linspace(0,3,200)
+    grid = GridSearchCV(KernelDensity(kernel='gaussian'),
+                        {'bandwidth': bandwidths},
+                        cv=5,
+                        verbose = 1,
+                        n_jobs = -2)
+    grid.fit(dist_filt[:, None])
 
-        logprob_kde = kde.score_samples(x_d[:, None])
-        pdfkde = np.exp(logprob_kde)
+    ### KDE representation
+    kde = KernelDensity(bandwidth=grid.best_params_['bandwidth'], 
+                        kernel='gaussian')
+    kde.fit(dist_filt[:, None])
+
+    logprob_kde = kde.score_samples(x_d[:, None])
+    pdfkde = np.exp(logprob_kde)
     
         
     ### Fit a Cauchy distribution 
@@ -346,16 +353,24 @@ for idx,dist in enumerate(data['distall'].T):
     
     ### Print info and plot
     print(idx,dmin,dmax,np.abs(np.mean(dist)),grid.best_params_['bandwidth'],data['metric'][idx])
-    p = plt.plot(x_d,pdfkde)
-    plt.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
+    p = ax.plot(x_d,pdfkde)
+    axins.plot(wl_vec,f_eps(wl_vec,1))
+    
+    if plot_cauchy:
+        ax.plot(x_d,ncauchy,linestyle='dashed',color=p[-1].get_color())
     
     idxM = np.argmax(pdfkde)
-    plt.text(x_d[idxM],pdfkde[idxM],data['metric'][idx])
+    ax.text(x_d[idxM],pdfkde[idxM],data['metric'][idx])
     
     ### Maximum of all of the PDFs
     maxpdf = max(maxpdf,np.max(pdfkde))
     maxpdf = max(maxpdf,np.max(ncauchy))
 
 ### Indicate true temperature 
-plt.vlines(T0,0,maxpdf,linestyles='--')
-plt.ylim([0,maxpdf])
+ax.text(1.5 * T0, 0.8 * maxpdf, "True temperature (K): " + str(T0))
+ax.set_ylim([0,maxpdf])
+ax.set_xlabel('Temperature (K)')
+ax.set_ylabel('Probability density function')
+
+axins.set_xlabel("Wavelength (nm)")
+axins.set_ylabel("Emissivity")

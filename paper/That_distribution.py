@@ -195,7 +195,7 @@ def generate_That_distributions(sigma_I, T0,
         That = 1/invT
         That *= C2 * ( 1/wl_v1 - 1/wl_v0)
           
-        # Filter out outliers 
+        # Filter out outliers
         Tave, Tstd, Tmetric, Tleft = tukey_fence(That, method = 'dispersion')
         
         ### Average of all Thats is the estimate of the true temperature

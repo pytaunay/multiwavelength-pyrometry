@@ -1,22 +1,100 @@
+# Copyright (C) 2019 Pierre-Yves Taunay
+# 
+# This program is free software: you can redistribute it andor modify
+# it under the terms of the GNU Affero General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https:/www.gnu.org/licenses/>.
+# 
+# Contact info: https:/github.com/pytaunay
+# 
+
+'''
+This file contains the necessary code to generate the temperature distributions
+as shown in our 2019 paper.
+We assume a correct emissivity of 0.5.
+'''
+
+import itertools
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm
-import spectropyrometer_constants as sc
-import generate_spectrum as gs
-import temperature_functions as tf
+from scipy.stats import norm, iqr
 
-import pixel_operations as po
-
-from statistics import tukey_fence
-
-from scipy.interpolate import splev,splrep
 from scipy.special import factorial2, polygamma
 
-from sklearn.neighbors import KernelDensity
-from sklearn.grid_search import GridSearchCV
 
+C1 = 1.191e16 # W/nm4/cm2 Sr
+C2 = 1.4384e7 # nm K
 
-def generate_Taverage_distribution(T0,wl_vec,pix_vec,nwl,nthat):
+def wien_approximation(wl,T,f_eps):    
+    '''
+    Function: wien_approximation
+    Calculates the Wien approximation to Planck's law for non-constant emissivity
+    Inputs:
+        - lnm: wavelength in nm
+        - T: temperature in K
+        - f_eps: a lambda function representing the emissivity as function of
+        temperature and wavelength
+    '''
+    eps = f_eps(wl,T) # Emissivity
+    
+    return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
+
+def tukey_fence(Tvec, method='cv'):
+    '''
+    Function: tukey_fence
+    Descritpion: Removes outliers using Tukey fencing
+    Inputs:
+        - Tvec: some vector
+        - method: a keyword for a metric to evaluate the data dispersion. It
+        can either be 
+            1. 'cv' (default) to calculate the coefficient of variation which
+            is defined as standard_deviation / mean, or
+            2. 'dispersion' to calculate the interquartile dispersion which is
+            defined as (Q3-Q1)/(Q3+Q1)
+    Outputs:
+        - Average of vector w/o outliers
+        - Standard deviation of vector w/o outliers
+        - Standard error of vector w/o outliers (%)
+        - Vector w/o outliers
+    '''      
+    ### Exclude data w/ Tukey fencing
+    T_iqr = iqr(Tvec)
+    T_qua = np.percentile(Tvec,[25,75])
+    
+    min_T = T_qua[0] - 1.5*T_iqr
+    max_T = T_qua[1] + 1.5*T_iqr
+    
+    T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
+    
+    ### Calculate standard deviation, average
+    Tstd = np.std(T_left)
+    Tave = np.mean(T_left)
+    
+    ### Calculate a metric
+    if method == 'cv':
+        Tcv = Tstd/Tave*100
+        metric = Tcv
+    elif method == 'dispersion':
+        dispersion = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
+        metric = dispersion
+
+    return Tave, Tstd, metric, T_left
+
+def generate_Taverage_distribution(sigma_I, 
+                                   T0,
+                                   wl_vec,
+                                   nwl,
+                                   wdw,
+                                   wdwo2,
+                                   ntbar):
     '''
     This function generates a distribution of errors. The errors are between
     the true temperature and the one calculated with the variance method.
@@ -25,72 +103,92 @@ def generate_Taverage_distribution(T0,wl_vec,pix_vec,nwl,nthat):
         - wl_vec: the vector of wavelengths
         - pix_vec: the vector of pixels
         - nwl: the number of wavelengths to consider
-        - nthat: number of Monte-Carlo sample to generate
+        - ntbar: number of Monte-Carlo sample to generate
     
     '''
     ### Grey body
     gr_eps = lambda wl,T: 0.5 * np.ones(len(wl))
     
     # Distribution of Taverage over T
-    Tave_dist = np.zeros(nthat)
+    Tbar_dist = np.zeros(ntbar)
+
+    ### Dictionary to store data
+    data = {}
     
+    ### Sample true data    
+    # Intensity from Wien's approximation
+    I_calc = wien_approximation(wl_vec,T0,gr_eps)
+        
     ### Sample data
-    for idx in range(nthat):
-#        if(np.mod(idx,500)==0):
-#            print(idx)
+    for idx in range(ntbar):
+        # Add some noise and take the natural log
+        noisy_data = np.random.normal(I_calc,sigma_I*I_calc)
+        log_noisy = np.log(noisy_data)
         
-        I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
-                wl_vec,T0,pix_vec,gr_eps)
-#        chosen_pix = np.arange(50,2950,dlambda)
-        chosen_pix = np.linspace(50,2949,nwl)
-        chosen_pix = np.array(chosen_pix,dtype=np.int64)
+        # Filter
+        if wdwo2 > 0:
+            log_noisy = log_noisy[wdwo2:-wdwo2]
+            
+            # Rearrange the indices
+            lwl_vec = wl_vec[wdwo2:-wdwo2]
+        else:
+            lwl_vec = np.copy(wl_vec)
         
-        cmb_pix = po.generate_combinations(chosen_pix,pix_sub_vec)
-        
-        bins = pix_vec[0::sc.pix_slice]
-                
-        # Which wavelengths are associated with the pixel combinations?
-        wl_v0 = wl_vec[cmb_pix[:,0]]
-        wl_v1 = wl_vec[cmb_pix[:,1]] 
-        
-        # Create the [lambda_min,lambda_max] pairs that delimit a "bin"
-        wl_binM = wl_vec[bins[1::]]
-        wl_binM = np.append(wl_binM,wl_vec[-1])
-        
-        ### Calculate intensity ratio
-        logIi = filtered_data[cmb_pix[:,0]-sc.window_length]
-        logIj = filtered_data[cmb_pix[:,1]-sc.window_length]
-#        logIi = np.log10(noisy_data)[cmb_pix[:,0]-sc.window_length]
-#        logIj = np.log10(noisy_data)[cmb_pix[:,1]-sc.window_length]
+        ### Index of the vectors
+        idx = np.arange(0,nwl,1)
+        idx = np.array(idx,dtype=np.int64)  
+            
+        ### Generate combinations
+        cmb_pix = []
     
-        logR = np.log(10)*(logIi-logIj)
+        for i,j in itertools.combinations(idx,2):
+            cmb_pix.append([i,j])           
+        cmb_pix = np.array(cmb_pix)
+        
+        ### Which wavelengths are associated with the pixel combinations?
+        wl_v0 = lwl_vec[cmb_pix[:,0]]
+        wl_v1 = lwl_vec[cmb_pix[:,1]] 
+    
+        ### Calculate intensity ratio
+        logIi = log_noisy[cmb_pix[:,0]]
+        logIj = log_noisy[cmb_pix[:,1]]
+    
+        logR = (logIi-logIj)
         
         # No emissivity error, so we can calculate eps1 and eps0 directly
         # from the given emissivity function
         eps0 = gr_eps(wl_v0,1)
         eps1 = gr_eps(wl_v1,1)
-        
-        invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
-        Tout = 1/invT
-        Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
-        
-        # Filter out some crazy values
-        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
-        
-        ### Distributions
-        Tave_dist[idx] = (np.mean(Tout) - T0)/T0
-        
     
-    ### Write data to disk
-    root = 'variance_calculations/'
-    np.save(root+'cmb_pix.npy',cmb_pix)
-    np.save(root+'I_calc.npy',I_calc)
-    np.save(root+'wl_v1.npy',wl_v1)
-    np.save(root+'wl_v0.npy',wl_v0)
-    np.save(root+'eps0.npy',eps0)
-    np.save(root+'eps1.npy',eps1)
+        invT = logR - 5 *np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
+        That = 1/invT
+        That *= C2 * ( 1/wl_v1 - 1/wl_v0)
+          
+        # Filter out outliers
+        Tave, Tstd, Tmetric, Tleft = tukey_fence(That, method = 'dispersion')
         
-    return Tave_dist
+        ### Average of all Thats is the estimate of the true temperature
+        Tave = np.average(Tleft)
+                    
+        ### Distributions
+        Tbar_dist[idx] = (Tave - T0)/T0
+        
+    data['Icalc'] = np.copy(I_calc)
+    data['noisy_data'] = np.copy(noisy_data)
+    data['log_noisy'] = np.copy(log_noisy)
+    data['wl_v0'] = np.copy(wl_v0)
+    data['wl_v1'] = np.copy(wl_v1)
+
+    R = np.max(wl_v1)/np.min(wl_v0) - 1
+    data['R'] = R
+    data['lambda1'] = np.min(wl_v0)
+    data['lambdaN'] = np.max(wl_v1)
+    data['Nwl'] = nwl
+    data['Nthat'] = (int)(nwl*(nwl-1)/2)
+    data['T0'] = T0
+    data['Tbar'] = np.copy(Tbar_dist)
+    
+    return data
 
 def muthat_expansion(mu,sig,order):
     '''
@@ -156,14 +254,13 @@ def compute_high_order_variance(T0,sigma_I,w):
     ratio = np.unique(sigd) / mudmin
     ratio = np.abs(ratio)
     
-#    print(mudmin,np.unique(sigd),ratio)
     
     ### muThat, sigThat
     muThat = np.zeros_like(mud)
     sigThat = np.zeros_like(mud)
     
     # Teq
-    Teq = sc.C2*(1/wl_v1-1/wl_v0) / mud
+    Teq = C2*(1/wl_v1-1/wl_v0) / mud
     
     # Taylor expansion for muThat: we want to find the "best" order in the 
     # expansion of the mean of 1/X
@@ -249,202 +346,112 @@ def compute_approximate_variance(T0,sigma_I,w):
     
     s = sfunction(Nwl,R)
     
-    sigTbar = 8*sigma_I**2 / w*(T0*l0/sc.C2)**2 * s
+    sigTbar = 8*sigma_I**2 / w*(T0*l0/C2)**2 * s
     
-    muTbar = 4*sigma_I**2 / w*(T0*l0/sc.C2)**2 * Nwl * (Nwl-1) * s
+    muTbar = 4*sigma_I**2 / w*(T0*l0/C2)**2 * Nwl * (Nwl-1) * s
     
     return muTbar,np.sqrt(sigTbar)    
 
 ### Input parameters
-nthat = 1000 # Number of samples for Monte-Carlo
+ntbar = 1000 # Number of samples for Monte-Carlo
 T0 = 3000
 sigma_I = 0.01
+wdw = 5 # window size
+wdwo2 = (int)((wdw-1)/2)
 
 # Wavelengths
-#Rarray = np.logspace(-1,1,10)
-Rarray = np.array([9])
-NvsR = []
+wlRange = 1.46
 
-for Rapprox in  Rarray:   
-    wl_ratio = 10
-    lambda_0 = 300
-#    lambda_N = wl_ratio * lambda_0
-    lambda_N = (1+Rapprox) * lambda_0
+# Holder for results
+res = []
+
+for lambda1 in np.array([300,600,900]):
+    lambdaN = (1+wlRange) * lambda1
     
-#    dlambda_prev = 100
-    # Number of wavelengths to test
-
     ### Approximate the starting point   
-    w = sc.window_length + 1
-    sigd = np.sqrt(2/w) * sigma_I
+    sigd = np.sqrt(2/wdw) * sigma_I
     rlim = 0.1
     Napprox = 1
-    Napprox += sc.C2 / (T0*lambda_0) * Rapprox / (1+Rapprox)**2 * rlim / sigd
-    Napprox -= 5
+    Napprox += C2 / (T0*lambda1) * wlRange / (1+wlRange)**2 * rlim / sigd
     
-    nwl_array = np.arange(Napprox,1000,1)
+    nwl_array = np.arange(10,20,1)
     nwl_array = np.array(nwl_array,dtype=np.int64)
     print("Napprox = ", Napprox)
 
     for nwl in nwl_array:
-#        chosen_pix = np.arange(50,2950,dlambda)
-        #     
-        chosen_pix = np.linspace(50,2949,nwl)
-        chosen_pix = np.array(chosen_pix,dtype=np.int64)
-               
-        #lambda_0 = 300
-        #lambda_N = 1100
-
-        wl_vec = np.linspace(lambda_0,lambda_N,(int)(3000))
+        wl_vec = np.linspace(lambda1,lambdaN,nwl)
+        dlambda = np.abs(wl_vec[0]-wl_vec[1])
         
-        pix_vec = np.linspace(0,2999,3000)
-        pix_vec = np.array(pix_vec,dtype=np.int64)
-        
-        ncomb = len(chosen_pix)
-        ncomb = (int)(nwl * (nwl-1)/2)
+        # Add window for moving average
+        wl_vec = np.linspace(lambda1 - wdwo2 * dlambda, 
+                             lambdaN + wdwo2 * dlambda, 
+                             nwl + wdw - 1)
         
         ### Create some data
-        Tbar_ds = generate_Taverage_distribution(T0,wl_vec,pix_vec,nwl,nthat)
-        muds,sigds = norm.fit(Tbar_ds)
+        data = generate_Taverage_distribution(sigma_I, 
+                                   T0,
+                                   wl_vec,
+                                   nwl,
+                                   wdw,
+                                   wdwo2,
+                                   ntbar)
+        muds,sigds = norm.fit(data['Tbar'])
         
-        ### Calculate the variance based on the second-order accurate expansions
-        muTbar, sigTbar_accurate, ratio, muThat, sigThat = compute_high_order_variance(T0,sigma_I,sc.window_length+1)
         
-        ## Calculate the variance based on the successive approximations to get an 
-        ## analytical expression
-#        muTbar_approx, sigTbar_approx = compute_approximate_variance(T0,sigma_I,sc.window_length+1)
-
+        res.append([C2/(T0*lambda1),nwl,muds,sigds])
         
-        wl_v0 = np.load('variance_calculations/wl_v0.npy')
-        wl_v1 = np.load('variance_calculations/wl_v1.npy')
-        lam_0 = np.min(wl_v0)
-        lam_N = np.max(wl_v1)
-        
-        dlambda = lam_N - lam_0
-        dlambda /= (nwl - 1)
-            
-        err = (sigTbar_accurate - sigds)/sigds * 100
-        err = np.abs(err)
-        print(nwl,dlambda,ratio,err)
-        
-        if ratio > 0.1:
-
-            Rtrue = lam_N / lam_0 - 1
-            Ntrue = len(chosen_pix)
-            
-            w = sc.window_length + 1
-            sigd = np.sqrt(2/w) * sigma_I
-            rlim = 0.1
-            Napprox = 1
-            Napprox += sc.C2 / (T0*lam_0) * Rtrue / (1+Rtrue)**2 * rlim / sigd
-            
-            res = [Rapprox,Rtrue,Ntrue,Napprox]
-            print(res)
-            NvsR.append(res)
-            dlambda_prev = dlambda
-            break
-
-fig, ax = plt.subplots(2,1,sharex=True)
-plotarray = np.array(NvsR)
-ax[0].plot(plotarray[:,1],plotarray[:,2],'^')
-
-Rarray = np.logspace(-1,1,100)
-Nlim_continuous = 1 + sc.C2 / (T0*lam_0) * Rarray / (1+Rarray)**2 * rlim / sigd
-
-ax[0].plot(Rarray,Nlim_continuous,'k-')
-
-err_percent = np.array([10.2,26.0,36.8,41.6,45,45,38.3,32.1,24.4,12.0])
-ax[1].plot(Rarray,err_percent,'^')
-
-
-plt.figure()
-### PLOTS
-Tbnd = 0.02
-cnt,bins,_ = plt.hist( Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)],bins=100,normed=True,histtype='step')
-### Account for offset
-mu,sig = norm.fit(Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)]) 
-
-###mu = 0
-_ = plt.hist( norm.rvs(loc=muTbar,scale=sigTbar_accurate,size=10000),bins=bins,normed=True,histtype='step')
-#_ = plt.hist( norm.rvs(loc=muTbar_approx,scale=sigTbar_approx,size=10000),bins=bins,normed=True,histtype='step')
-
-#print(len(chosen_pix),mu,sig,muTbar_approx,sigTbar_approx,muTbar,sigTbar_accurate)
-
-##print(len(np.arange(50,2950,dlambda)),sig)
-#plt.xlim([-0.1,0.1])
-
-#
-#def doublesum(Nwl,lam_m,dlam):
-#    s = 0.0
-#    for i in np.arange(1,Nwl,1):
-#        lambdai = lam_m + (i-1)*dlam
-#        for j in np.arange(i+1,Nwl+1,1):
-#            lambdaj = lambdai + j * dlam
+#        ### Calculate the variance based on the second-order accurate expansions
+#        muTbar, sigTbar_accurate, ratio, muThat, sigThat = compute_high_order_variance(T0,sigma_I,sc.window_length+1)
+#        
+#        wl_v0 = np.load('variance_calculations/wl_v0.npy')
+#        wl_v1 = np.load('variance_calculations/wl_v1.npy')
+#        lam_1 = np.min(wl_v0)
+#        lam_N = np.max(wl_v1)
+#        
+#        dlambda = lam_N - lam_1
+#        dlambda /= (nwl - 1)
 #            
-#            s += (lambdaj * lambdai / (j*dlam))**2 
-#    
-#    return s
+#        err = (sigTbar_accurate - sigds)/sigds * 100
+#        err = np.abs(err)
+#        print(nwl,dlambda,ratio,err)
+#        
+#        if ratio > 0.1:
 #
-#def sigdT(wl_v0,wl_v1,Nwl,T0):  
-#    fac = 2*sigma_I / np.sqrt(sc.window_length+1) * T0 / sc.C2 * 1/Nwl
-#     
-#    s = np.sqrt(np.sum((1/(1/wl_v0 - 1/wl_v1))**2))
-#    
-#    return fac * s
+#            Rtrue = lam_N / lam_1 - 1
+#            Ntrue = len(chosen_pix)
+#            
+#            w = sc.window_length + 1
+#            sigd = np.sqrt(2/w) * sigma_I
+#            rlim = 0.1
+#            Napprox = 1
+#            Napprox += sc.C2 / (T0*lam_1) * Rtrue / (1+Rtrue)**2 * rlim / sigd
+#            
+#            res = [Rapprox,Rtrue,Ntrue,Napprox]
+#            print(res)
+#            NvsR.append(res)
+#            dlambda_prev = dlambda
+#            break
 #
-#### USE KERNEL DENSITY ESTIMATE TO GENERATE NICE PLOTS
-#### Kernel density
-## Find the best bandwidth for a Gaussian kernel density
-#print("Calculate best kernel density bandwidth")
-#bandwidths = 10 ** np.linspace(-3, -2, 100)
-#grid_dToT = GridSearchCV(KernelDensity(kernel='gaussian'),
-#                    {'bandwidth': bandwidths},
-#                    cv=5,
-#                    verbose = 1)
-#grid_dToT.fit(Tave_dist[:, None]);
-#print('dToT best params:',grid_dToT.best_params_)
+#fig, ax = plt.subplots(2,1,sharex=True)
+#plotarray = np.array(NvsR)
+#ax[0].plot(plotarray[:,1],plotarray[:,2],'^')
 #
-#bandwidths = 10 ** np.linspace(-3, -1, 100)
-#grid_sample = GridSearchCV(KernelDensity(kernel='gaussian'),
-#                    {'bandwidth': bandwidths},
-#                    cv=5,
-#                    verbose = 1)
-#grid_sample.fit(sample_lo[:, None]);
-#print('Sample best params:',grid_sample.best_params_)
+#Rarray = np.logspace(-1,1,100)
+#Nlim_continuous = 1 + sc.C2 / (T0*lam_1) * Rarray / (1+Rarray)**2 * rlim / sigd
 #
+#ax[0].plot(Rarray,Nlim_continuous,'k-')
 #
-### Instantiate and fit the KDE model
-#print("Instantiate and fit the KDE model")
-#kde_dToT = KernelDensity(bandwidth=grid_dToT.best_params_['bandwidth'], 
-#                    kernel='gaussian')
-#kde_dToT.fit(dToT_lo[:, None])
-#
-#kde_sample = KernelDensity(bandwidth=grid_sample.best_params_['bandwidth'], 
-#                    kernel='gaussian')
-#kde_sample.fit(sample_lo[:, None])
-#
-## Score_samples returns the log of the probability density
-#x_d = np.linspace(-0.5,0.5,1000)
-#logprob_dToT = kde_dToT.score_samples(x_d[:, None])
-#logprob_sample = kde_sample.score_samples(x_d[:, None])
-#
-#### Plots
-#plt.hist(dToT_lo,bins=100,normed=True,histtype='step')
-#
-#plt.fill_between(x_d, np.exp(logprob_dToT), alpha=0.5)
-#plt.plot(dToT, np.full_like(dToT, -0.01), '|k', markeredgewidth=1)
-#
-#plt.fill_between(x_d, np.exp(logprob_sample), alpha=0.5)
-#plt.plot(sample, np.full_like(sample, -0.02), '|b', markeredgewidth=1)
-#
-#plt.ylim(-0.02, 50)
-#plt.xlim(-1,1)
-#
-
-##    
-#
-#### 
+#err_percent = np.array([10.2,26.0,36.8,41.6,45,45,38.3,32.1,24.4,12.0])
+#ax[1].plot(Rarray,err_percent,'^')
 #
 #
+#plt.figure()
+#### PLOTS
+#Tbnd = 0.02
+#cnt,bins,_ = plt.hist( Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)],bins=100,normed=True,histtype='step')
+#### Account for offset
+#mu,sig = norm.fit(Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)]) 
 #
-#    
+####mu = 0
+#_ = plt.hist( norm.rvs(loc=muTbar,scale=sigTbar_accurate,size=10000),bins=bins,normed=True,histtype='step')
+##_ = plt.hist( norm.rvs(loc=muTbar_approx,scale=sigTbar_approx,size=10000),bins=bins,normed=True,histtype='step')

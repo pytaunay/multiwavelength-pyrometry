@@ -27,7 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm, iqr
 
-from scipy.special import factorial2, polygamma
+from scipy.special import factorial2, polygamma, erf
 
 
 C1 = 1.191e16 # W/nm4/cm2 Sr
@@ -69,8 +69,10 @@ def tukey_fence(Tvec, method='cv'):
     T_iqr = iqr(Tvec)
     T_qua = np.percentile(Tvec,[25,75])
     
-    min_T = T_qua[0] - 1.5*T_iqr
-    max_T = T_qua[1] + 1.5*T_iqr
+#    min_T = T_qua[0] - 1.5*T_iqr
+#    max_T = T_qua[1] + 1.5*T_iqr
+    min_T = T_qua[0] - 31.3 * T_iqr
+    max_T = T_qua[1] + 31.3 * T_iqr
     
     T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
     
@@ -87,6 +89,12 @@ def tukey_fence(Tvec, method='cv'):
         metric = dispersion
 
     return Tave, Tstd, metric, T_left
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
 
 def generate_Taverage_distribution(sigma_I, 
                                    T0,
@@ -127,7 +135,7 @@ def generate_Taverage_distribution(sigma_I,
         
         # Filter
         if wdwo2 > 0:
-            log_noisy = log_noisy[wdwo2:-wdwo2]
+            log_noisy = moving_average(log_noisy,wdw)
             
             # Rearrange the indices
             lwl_vec = wl_vec[wdwo2:-wdwo2]
@@ -135,13 +143,13 @@ def generate_Taverage_distribution(sigma_I,
             lwl_vec = np.copy(wl_vec)
         
         ### Index of the vectors
-        idx = np.arange(0,nwl,1)
-        idx = np.array(idx,dtype=np.int64)  
+        vidx = np.arange(0,nwl,1)
+        vidx = np.array(vidx,dtype=np.int64)  
             
         ### Generate combinations
         cmb_pix = []
     
-        for i,j in itertools.combinations(idx,2):
+        for i,j in itertools.combinations(vidx,2):
             cmb_pix.append([i,j])           
         cmb_pix = np.array(cmb_pix)
         
@@ -172,10 +180,11 @@ def generate_Taverage_distribution(sigma_I,
                     
         ### Distributions
         Tbar_dist[idx] = (Tave - T0)/T0
-        
+                
     data['Icalc'] = np.copy(I_calc)
     data['noisy_data'] = np.copy(noisy_data)
     data['log_noisy'] = np.copy(log_noisy)
+    data['cmb_pix'] = np.copy(cmb_pix)
     data['wl_v0'] = np.copy(wl_v0)
     data['wl_v1'] = np.copy(wl_v1)
 
@@ -187,6 +196,7 @@ def generate_Taverage_distribution(sigma_I,
     data['Nthat'] = (int)(nwl*(nwl-1)/2)
     data['T0'] = T0
     data['Tbar'] = np.copy(Tbar_dist)
+    data['That'] = np.copy(That)
     
     return data
 
@@ -211,7 +221,7 @@ def muthat_expansion(mu,sig,order):
     return approx
 
 
-def compute_high_order_variance(T0,sigma_I,w):  
+def compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data):  
     '''
     Calculates the variance from the successive Taylor expansions. We keep
     high orders for all of the expansions.
@@ -219,41 +229,33 @@ def compute_high_order_variance(T0,sigma_I,w):
         - T0: true temperature
         - sigma_I: standard variation on the measurement noise
     '''
-    root = 'variance_calculations/'
-    cmb_pix = np.load(root+'cmb_pix.npy')
-    I_calc = np.load(root+'I_calc.npy')
-    wl_v1 = np.load(root+'wl_v1.npy')
-    wl_v0 = np.load(root+'wl_v0.npy')
-    eps0 = np.load(root+'eps0.npy')
-    eps1 = np.load(root+'eps1.npy')
+    wl_v1 = data['wl_v1']  
+    wl_v0 = data['wl_v0']
+    I_calc = data['Icalc']
+    cmb_pix = data['cmb_pix']
     
     # Number of combinations
-    Ncomb = len(wl_v1)
+    ncomb = len(wl_v1)
     
     ### Denominator average and variance for all wavelengths
     # mud, sigd
-    mud = np.zeros(Ncomb)
-    for idx in range(Ncomb):
-        pixi = cmb_pix[idx,0]
-        pixj = cmb_pix[idx,1]
-        
-        # window size over 2
-        wo2 = (int)(sc.window_length/2)
-        
-        icontrib = np.sum(np.log(I_calc)[pixi-wo2:pixi+wo2+1])
-        jcontrib = np.sum(np.log(I_calc)[pixj-wo2:pixj+wo2+1])
-        
-        mud[idx] = 1/w * (icontrib - jcontrib)
+    mud = np.zeros(ncomb)
+    logI = np.log(I_calc)
     
-    mud += - 5*np.log(wl_v1/wl_v0) - np.log(eps0/eps1)
-    sigd = np.ones_like(mud) * np.sqrt(2/w)*sigma_I
+    # Filtering effect on mu_d
+    logI = moving_average(logI,wdw)
+    
+    mud = logI[cmb_pix[:,0]] - logI[cmb_pix[:,1]]
+    
+    # No epsilon here: we assumed constant emissivity
+    mud += - 5*np.log(wl_v1/wl_v0)
+    
+    sigd = np.ones_like(mud) * np.sqrt(2/wdw)*sigma_I
     mudmin = np.min(np.abs(mud))
     
-    
-    
+    # sigma_d / mu_d
     ratio = np.unique(sigd) / mudmin
     ratio = np.abs(ratio)
-    
     
     ### muThat, sigThat
     muThat = np.zeros_like(mud)
@@ -267,35 +269,60 @@ def compute_high_order_variance(T0,sigma_I,w):
     sigomud = sigd/mud
     sigomud2 = sigomud**2
     
-    findN = lambda N,idx: np.abs(1/mud[idx]) * factorial2(2*N-1) * sigomud2[idx]**N
-    Narr = np.arange(0,30,1)
-    Narr = np.array(Narr,dtype=np.int64)
-    
-    for idx in range(Ncomb):
-        argmin = np.argmin(findN(Narr,idx))
-        order = (int)(Narr[argmin])
-        
-        mu = mud[idx]
-        sig = sigd[idx]
-        muThat[idx] = muthat_expansion(mu,sig,order)
-    
-    muThat *= Teq / T0
+#    findN = lambda N,idx: np.abs(1/mud[idx]) * factorial2(2*N-1) * sigomud2[idx]**N
+#    Narr = np.arange(0,30,1)
+#    Narr = np.array(Narr,dtype=np.int64)
+#    
+#    for idx in range(ncomb):
+#        argmin = np.argmin(findN(Narr,idx))
+#        order = (int)(Narr[argmin])
+#        
+#        mu = mud[idx]
+#        sig = sigd[idx]
+#        muThat[idx] = muthat_expansion(mu,sig,order)
+#    
+#    muThat *= Teq / T0
+    muThat = Teq/T0 
     
     # Taylor expansion for sigThat: we keep only the first two orders
     sigThat = (Teq/T0)**2 * sigomud2 * (1 + 2*sigomud2)
-    sigThat = np.sqrt(sigThat)    
+    sigThat = np.sqrt(sigThat)
+
+    # Gamma for the Cauchy distrib
+    gam = ncomb * np.sqrt(2/np.pi) * 1/np.sum(1/sigThat)
     
     
+    
+    # Truncated normal
+#    sigThat_trunc = 4 * sigThat * np.exp(-8*gam**2/sigThat**2)
+#    sigThat_trunc *= np.sqrt(2/np.pi) * gam
+#    sigThat_trunc /= erf(2*np.sqrt(2)*gam/sigThat)
+#    sigThat_trunc *= -1
+#    sigThat_trunc = sigThat**2
+#    sigThat_trunc = np.sqrt(sigThat_trunc)
+    sigThat_trunc = sigThat / erf(2*np.sqrt(2)*gam/sigThat)
+    
+#        
     ### muTbar, sigTbar
     # muTbar: subtract 1 bc. we want (Tbar-T0)/T0 = Tbar/T0 - 1
-    muTbar = 1/Ncomb * np.sum(muThat) - 1
+    muTbar = 1/ncomb * np.sum(muThat) - 1
     
     # sigTbar
-    sigTbar = 1/Ncomb**2 * np.sum(sigThat**2)
+    sigTbar = 1/ncomb**2 * np.sum(sigThat**2)
     sigTbar = np.sqrt(sigTbar)
     
-    return muTbar,sigTbar,ratio,muThat,sigThat
-
+#    varTbar = 4*sigTbar*np.exp(-8*gam**2/sigTbar**2)
+#    varTbar *= np.sqrt(2/np.pi) * gam
+#    varTbar /= erf(2*np.sqrt(2)*gam/sigTbar)
+#    varTbar *= -1
+#    varTbar += sigTbar**2
+#    
+#    sigTbar = np.sqrt(varTbar)
+    
+#    sigTbar = 1/ncomb * np.sum(sigThat_trunc**2)
+#    sigTbar = np.sqrt(sigTbar)
+    
+    return muTbar,sigTbar,ratio,muThat,sigThat,sigThat_trunc
 
 
 def sfunction(N,R):
@@ -324,39 +351,28 @@ def sfunction(N,R):
   
 
 
-def compute_approximate_variance(T0,sigma_I,w):
+def compute_approximate_variance(sigma_I,T0,nwl,wdw,data):
     '''
     Calculates the approximate variance from the successive approximations.
     
     '''
-    root = 'variance_calculations/'
-    wl_v1 = np.load(root+'wl_v1.npy')
-    wl_v0 = np.load(root+'wl_v0.npy')
+    wl_v0 = data['wl_v0']
+    l1 = np.min(wl_v0)
+    R = data['R']
     
-    l0 = np.min(wl_v0)
-    lM = np.max(wl_v1)
+    s = sfunction((float)(nwl),R)
     
-    R = lM/l0-1
-    
-    
-    ul = np.unique(wl_v0)
-    Nwl = len(ul)+1
-    
-    print(Nwl,R)
-    
-    s = sfunction(Nwl,R)
-    
-    sigTbar = 8*sigma_I**2 / w*(T0*l0/C2)**2 * s
-    
-    muTbar = 4*sigma_I**2 / w*(T0*l0/C2)**2 * Nwl * (Nwl-1) * s
+    sigTbar = 8*sigma_I**2 / wdw*(T0*l1/C2)**2 * s
+#    muTbar = 4*sigma_I**2 / wdw*(T0*l0/C2)**2 * Nwl * (Nwl-1) * s
+    muTbar = 0
     
     return muTbar,np.sqrt(sigTbar)    
 
 ### Input parameters
 ntbar = 1000 # Number of samples for Monte-Carlo
 T0 = 3000
-sigma_I = 0.01
-wdw = 5 # window size
+sigma_I = 0.1
+wdw = 9 # window size
 wdwo2 = (int)((wdw-1)/2)
 
 # Wavelengths
@@ -365,7 +381,7 @@ wlRange = 1.46
 # Holder for results
 res = []
 
-for lambda1 in np.array([300,600,900]):
+for lambda1 in np.array([300]):
     lambdaN = (1+wlRange) * lambda1
     
     ### Approximate the starting point   
@@ -374,19 +390,30 @@ for lambda1 in np.array([300,600,900]):
     Napprox = 1
     Napprox += C2 / (T0*lambda1) * wlRange / (1+wlRange)**2 * rlim / sigd
     
-    nwl_array = np.arange(10,20,1)
+    nwl_array = np.arange(10,100,10)
+#    nwl_array = np.array([10,15,29,58,116])
     nwl_array = np.array(nwl_array,dtype=np.int64)
     print("Napprox = ", Napprox)
 
-    for nwl in nwl_array:
+    for idx,nwl in enumerate(nwl_array):
+        
+        if np.mod(idx,10) == 0:
+            print(idx)
+        
         wl_vec = np.linspace(lambda1,lambdaN,nwl)
+#        wl_vec = np.linspace(lambda1,lambdaN,(int)(3000))
+#        chosen_pix = np.linspace(50,2949,nwl)
+#        chosen_pix = np.array(chosen_pix,dtype=np.int64)
+#        wl_vec = wl_vec[chosen_pix]
+        
+        
         dlambda = np.abs(wl_vec[0]-wl_vec[1])
         
         # Add window for moving average
         wl_vec = np.linspace(lambda1 - wdwo2 * dlambda, 
                              lambdaN + wdwo2 * dlambda, 
                              nwl + wdw - 1)
-        
+#        
         ### Create some data
         data = generate_Taverage_distribution(sigma_I, 
                                    T0,
@@ -397,11 +424,43 @@ for lambda1 in np.array([300,600,900]):
                                    ntbar)
         muds,sigds = norm.fit(data['Tbar'])
         
+        ### Approximate accuracy and precision
+        muApprox, sigApprox = compute_approximate_variance(sigma_I,
+                                                           T0,
+                                                           nwl,
+                                                           wdw,
+                                                           data)
         
-        res.append([C2/(T0*lambda1),nwl,muds,sigds])
+        ### Calculate the variance based on the second-order accurate expansions
+        muAcc, sigAcc, ratio, muThat, sigThat, sigThat_trunc = compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data)
         
-#        ### Calculate the variance based on the second-order accurate expansions
-#        muTbar, sigTbar_accurate, ratio, muThat, sigThat = compute_high_order_variance(T0,sigma_I,sc.window_length+1)
+#        plt.plot(sigThat)
+        
+#        print(sigApprox,sigAcc,sigds)
+        
+        res.append([C2/(T0*lambda1), # 0
+                    nwl, # 1 
+                    dlambda, # 2
+                    ratio, # 3 
+                    sigds, # 4
+                    sigAcc, # 5
+                    sigApprox, # 6
+                    muds * 100, # 7
+                    muAcc * 100, # 8 
+                    muApprox * 100]) # 9
+
+res = np.array(res)
+
+fig, ax = plt.subplots(2,1)
+
+ax[0].vlines(Napprox,np.min(res[:,5]),np.max(res[:,5]),linestyles='--')
+ax[0].plot(res[:,1],res[:,4],'^')
+ax[0].plot(res[:,1],res[:,5])
+
+ax[1].plot(res[:,1],res[:,7],'^')
+ax[1].plot(res[:,1],res[:,8])
+#        ### 
+#        
 #        
 #        wl_v0 = np.load('variance_calculations/wl_v0.npy')
 #        wl_v1 = np.load('variance_calculations/wl_v1.npy')

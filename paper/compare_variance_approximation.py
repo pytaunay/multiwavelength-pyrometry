@@ -269,40 +269,12 @@ def compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data):
     sigomud = sigd/mud
     sigomud2 = sigomud**2
     
-#    findN = lambda N,idx: np.abs(1/mud[idx]) * factorial2(2*N-1) * sigomud2[idx]**N
-#    Narr = np.arange(0,30,1)
-#    Narr = np.array(Narr,dtype=np.int64)
-#    
-#    for idx in range(ncomb):
-#        argmin = np.argmin(findN(Narr,idx))
-#        order = (int)(Narr[argmin])
-#        
-#        mu = mud[idx]
-#        sig = sigd[idx]
-#        muThat[idx] = muthat_expansion(mu,sig,order)
-#    
-#    muThat *= Teq / T0
     muThat = Teq/T0 
     
     # Taylor expansion for sigThat: we keep only the first two orders
     sigThat = (Teq/T0)**2 * sigomud2 * (1 + 2*sigomud2)
     sigThat = np.sqrt(sigThat)
-
-    # Gamma for the Cauchy distrib
-    gam = ncomb * np.sqrt(2/np.pi) * 1/np.sum(1/sigThat)
-    
-    
-    
-    # Truncated normal
-#    sigThat_trunc = 4 * sigThat * np.exp(-8*gam**2/sigThat**2)
-#    sigThat_trunc *= np.sqrt(2/np.pi) * gam
-#    sigThat_trunc /= erf(2*np.sqrt(2)*gam/sigThat)
-#    sigThat_trunc *= -1
-#    sigThat_trunc = sigThat**2
-#    sigThat_trunc = np.sqrt(sigThat_trunc)
-    sigThat_trunc = sigThat / erf(2*np.sqrt(2)*gam/sigThat)
-    
-#        
+        
     ### muTbar, sigTbar
     # muTbar: subtract 1 bc. we want (Tbar-T0)/T0 = Tbar/T0 - 1
     muTbar = 1/ncomb * np.sum(muThat) - 1
@@ -311,18 +283,8 @@ def compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data):
     sigTbar = 1/ncomb**2 * np.sum(sigThat**2)
     sigTbar = np.sqrt(sigTbar)
     
-#    varTbar = 4*sigTbar*np.exp(-8*gam**2/sigTbar**2)
-#    varTbar *= np.sqrt(2/np.pi) * gam
-#    varTbar /= erf(2*np.sqrt(2)*gam/sigTbar)
-#    varTbar *= -1
-#    varTbar += sigTbar**2
-#    
-#    sigTbar = np.sqrt(varTbar)
     
-#    sigTbar = 1/ncomb * np.sum(sigThat_trunc**2)
-#    sigTbar = np.sqrt(sigTbar)
-    
-    return muTbar,sigTbar,ratio,muThat,sigThat,sigThat_trunc
+    return muTbar,sigTbar,ratio,muThat,sigThat
 
 
 def sfunction(N,R):
@@ -370,9 +332,9 @@ def compute_approximate_variance(sigma_I,T0,nwl,wdw,data):
 
 ### Input parameters
 ntbar = 1000 # Number of samples for Monte-Carlo
-T0 = 3000
-sigma_I = 0.1
-wdw = 9 # window size
+T0 = 1500
+sigma_I = 0.01
+wdw = 1 # window size
 wdwo2 = (int)((wdw-1)/2)
 
 # Wavelengths
@@ -400,12 +362,7 @@ for lambda1 in np.array([300]):
         if np.mod(idx,10) == 0:
             print(idx)
         
-        wl_vec = np.linspace(lambda1,lambdaN,nwl)
-#        wl_vec = np.linspace(lambda1,lambdaN,(int)(3000))
-#        chosen_pix = np.linspace(50,2949,nwl)
-#        chosen_pix = np.array(chosen_pix,dtype=np.int64)
-#        wl_vec = wl_vec[chosen_pix]
-        
+        wl_vec = np.linspace(lambda1,lambdaN,nwl)        
         
         dlambda = np.abs(wl_vec[0]-wl_vec[1])
         
@@ -413,7 +370,7 @@ for lambda1 in np.array([300]):
         wl_vec = np.linspace(lambda1 - wdwo2 * dlambda, 
                              lambdaN + wdwo2 * dlambda, 
                              nwl + wdw - 1)
-#        
+        
         ### Create some data
         data = generate_Taverage_distribution(sigma_I, 
                                    T0,
@@ -432,11 +389,7 @@ for lambda1 in np.array([300]):
                                                            data)
         
         ### Calculate the variance based on the second-order accurate expansions
-        muAcc, sigAcc, ratio, muThat, sigThat, sigThat_trunc = compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data)
-        
-#        plt.plot(sigThat)
-        
-#        print(sigApprox,sigAcc,sigds)
+        muAcc, sigAcc, ratio, muThat, sigThat = compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data)
         
         res.append([C2/(T0*lambda1), # 0
                     nwl, # 1 
@@ -459,58 +412,3 @@ ax[0].plot(res[:,1],res[:,5])
 
 ax[1].plot(res[:,1],res[:,7],'^')
 ax[1].plot(res[:,1],res[:,8])
-#        ### 
-#        
-#        
-#        wl_v0 = np.load('variance_calculations/wl_v0.npy')
-#        wl_v1 = np.load('variance_calculations/wl_v1.npy')
-#        lam_1 = np.min(wl_v0)
-#        lam_N = np.max(wl_v1)
-#        
-#        dlambda = lam_N - lam_1
-#        dlambda /= (nwl - 1)
-#            
-#        err = (sigTbar_accurate - sigds)/sigds * 100
-#        err = np.abs(err)
-#        print(nwl,dlambda,ratio,err)
-#        
-#        if ratio > 0.1:
-#
-#            Rtrue = lam_N / lam_1 - 1
-#            Ntrue = len(chosen_pix)
-#            
-#            w = sc.window_length + 1
-#            sigd = np.sqrt(2/w) * sigma_I
-#            rlim = 0.1
-#            Napprox = 1
-#            Napprox += sc.C2 / (T0*lam_1) * Rtrue / (1+Rtrue)**2 * rlim / sigd
-#            
-#            res = [Rapprox,Rtrue,Ntrue,Napprox]
-#            print(res)
-#            NvsR.append(res)
-#            dlambda_prev = dlambda
-#            break
-#
-#fig, ax = plt.subplots(2,1,sharex=True)
-#plotarray = np.array(NvsR)
-#ax[0].plot(plotarray[:,1],plotarray[:,2],'^')
-#
-#Rarray = np.logspace(-1,1,100)
-#Nlim_continuous = 1 + sc.C2 / (T0*lam_1) * Rarray / (1+Rarray)**2 * rlim / sigd
-#
-#ax[0].plot(Rarray,Nlim_continuous,'k-')
-#
-#err_percent = np.array([10.2,26.0,36.8,41.6,45,45,38.3,32.1,24.4,12.0])
-#ax[1].plot(Rarray,err_percent,'^')
-#
-#
-#plt.figure()
-#### PLOTS
-#Tbnd = 0.02
-#cnt,bins,_ = plt.hist( Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)],bins=100,normed=True,histtype='step')
-#### Account for offset
-#mu,sig = norm.fit(Tbar_ds[(Tbar_ds<Tbnd)&(Tbar_ds>-Tbnd)]) 
-#
-####mu = 0
-#_ = plt.hist( norm.rvs(loc=muTbar,scale=sigTbar_accurate,size=10000),bins=bins,normed=True,histtype='step')
-##_ = plt.hist( norm.rvs(loc=muTbar_approx,scale=sigTbar_approx,size=10000),bins=bins,normed=True,histtype='step')

@@ -27,9 +27,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm, iqr
 
-from scipy.special import factorial2, polygamma, erf
-
-
 C1 = 1.191e16 # W/nm4/cm2 Sr
 C2 = 1.4384e7 # nm K
 
@@ -47,18 +44,15 @@ def wien_approximation(wl,T,f_eps):
     
     return eps * C1 / wl**5 * np.exp(-C2/(T*wl))
 
-def tukey_fence(Tvec, method='cv'):
+def tukey_fence(Tvec, delta=31.3):
     '''
     Function: tukey_fence
     Descritpion: Removes outliers using Tukey fencing
     Inputs:
         - Tvec: some vector
-        - method: a keyword for a metric to evaluate the data dispersion. It
-        can either be 
-            1. 'cv' (default) to calculate the coefficient of variation which
-            is defined as standard_deviation / mean, or
-            2. 'dispersion' to calculate the interquartile dispersion which is
-            defined as (Q3-Q1)/(Q3+Q1)
+        - delta: a fencing value above/below the third/first quartile, 
+        respectively. Values outside of [Q1 - delta * IQR, Q3 + delta*IQR] are
+        discarded
     Outputs:
         - Average of vector w/o outliers
         - Standard deviation of vector w/o outliers
@@ -69,24 +63,18 @@ def tukey_fence(Tvec, method='cv'):
     T_iqr = iqr(Tvec)
     T_qua = np.percentile(Tvec,[25,75])
     
-#    min_T = T_qua[0] - 1.5*T_iqr
-#    max_T = T_qua[1] + 1.5*T_iqr
-    min_T = T_qua[0] - 31.3 * T_iqr
-    max_T = T_qua[1] + 31.3 * T_iqr
+    min_T = T_qua[0] - delta * T_iqr
+    max_T = T_qua[1] + delta * T_iqr
     
     T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
     
-    ### Calculate standard deviation, average
+    ### Calculate standard deviation, average of the fenced data
     Tstd = np.std(T_left)
     Tave = np.mean(T_left)
     
-    ### Calculate a metric
-    if method == 'cv':
-        Tcv = Tstd/Tave*100
-        metric = Tcv
-    elif method == 'dispersion':
-        dispersion = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
-        metric = dispersion
+    ### Calculate a metric: coefficient of quartile dispersion
+    dispersion = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
+    metric = dispersion
 
     return Tave, Tstd, metric, T_left
 
@@ -200,26 +188,6 @@ def generate_Taverage_distribution(sigma_I,
     
     return data
 
-def muthat_expansion(mu,sig,order):
-    '''
-    Calculates the expansion for mu_{\hat{T}} based on mu_D and sigma_D.
-    The expansion calculates the average of 1/X where X ~ N(mu_D,sigma_D^2):
-        E[1/X] \approx 1/mu * sum_{k=0}^N (sigma/mu)**2k * (2k-1)!!
-    Because 1/mu is lumped into Teq after the call to this function, it is
-    not necessary to multiply the result of the for loop by 1//mu.
-    Inputs:
-        - mu, sig: expected value and standard deviation of X
-        - order: order of the expansion
-
-    '''
-    sigomu = sig/mu
-    sigomu2 = sigomu**2
-    approx = 0
-    for k in range(order):
-        approx += sigomu2**k * factorial2(2*k-1)
-        
-    return approx
-
 
 def compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data):  
     '''
@@ -287,49 +255,6 @@ def compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data):
     return muTbar,sigTbar,ratio,muThat,sigThat
 
 
-def sfunction(N,R):
-    '''
-    Computes the summed term that appears in the calculation of the variance
-    under the approximation of evenly distributed wavelengths.
-    The analytical expression is computed with Mathematica
-    
-    Inputs:
-        - N: Number of wavelengths
-        - R: Wavelength range (lambda_max/lambda_min - 1)
-    '''
-    
-    return (1/360)*1/(N**2*R**2)*(12*np.euler_gamma*((-30)+(-60)*R+(-30) 
-  *((-1)+N)**(-2.)*(1+3*((-1)+N)*N)*R**2+30*(1+(-2)*N)*(( 
-  -1)+N)**(-2.)*N*R**3+((-1)+N)**(-4.)*(1+(-15)*((-1)+N)**2* 
-  N**2)*R**4)+N*(3*((-1)+N)**(-2.)*N*R**2*(120+R*(120+(( 
-  -1)+N)**(-2.)*(19+N*((-62)+39*N))*R))+2*np.pi**2*(30+R*(60+( 
-  (-1)+N)**(-1.)*R*((-30)+60*N+30*N*R+((-1)+N)**(-2.)*(1+N+ 
-  (-9)*N**2+6*N**3)*R**2))))+(-12)*(30+60*R+30*((-1)+N)**( 
-  -2)*(1+3*((-1)+N)*N)*R**2+30*((-1)+N)**(-2.)*N*((-1)+2* 
-  N)*R**3+((-1)+N)**(-4.)*((-1)+15*((-1)+N)**2*N**2)*R**4)* 
-  polygamma(0,1+N)+(-12)*N*(30+R*(60+((-1)+N)**(-1.)*R*((-30) 
-  +60*N+30*N*R+((-1)+N)**(-2.)*(1+N+(-9)*N**2+6*N**3)* 
-  R**2)))*polygamma(1,1+N));
-  
-
-
-def compute_approximate_variance(sigma_I,T0,nwl,wdw,data):
-    '''
-    Calculates the approximate variance from the successive approximations.
-    
-    '''
-    wl_v0 = data['wl_v0']
-    l1 = np.min(wl_v0)
-    R = data['R']
-    
-    s = sfunction((float)(nwl),R)
-    
-    sigTbar = 8*sigma_I**2 / wdw*(T0*l1/C2)**2 * s
-#    muTbar = 4*sigma_I**2 / wdw*(T0*l0/C2)**2 * Nwl * (Nwl-1) * s
-    muTbar = 0
-    
-    return muTbar,np.sqrt(sigTbar)    
-
 ### Input parameters
 ntbar = 1000 # Number of samples for Monte-Carlo
 T0 = 1500
@@ -353,7 +278,6 @@ for lambda1 in np.array([300]):
     Napprox += C2 / (T0*lambda1) * wlRange / (1+wlRange)**2 * rlim / sigd
     
     nwl_array = np.arange(10,100,10)
-#    nwl_array = np.array([10,15,29,58,116])
     nwl_array = np.array(nwl_array,dtype=np.int64)
     print("Napprox = ", Napprox)
 
@@ -381,13 +305,6 @@ for lambda1 in np.array([300]):
                                    ntbar)
         muds,sigds = norm.fit(data['Tbar'])
         
-        ### Approximate accuracy and precision
-        muApprox, sigApprox = compute_approximate_variance(sigma_I,
-                                                           T0,
-                                                           nwl,
-                                                           wdw,
-                                                           data)
-        
         ### Calculate the variance based on the second-order accurate expansions
         muAcc, sigAcc, ratio, muThat, sigThat = compute_high_order_variance(sigma_I,T0,nwl,wdw,wdwo2,data)
         
@@ -397,10 +314,8 @@ for lambda1 in np.array([300]):
                     ratio, # 3 
                     sigds, # 4
                     sigAcc, # 5
-                    sigApprox, # 6
-                    muds * 100, # 7
-                    muAcc * 100, # 8 
-                    muApprox * 100]) # 9
+                    muds * 100, # 6
+                    muAcc * 100]) # 7
 
 res = np.array(res)
 
@@ -409,6 +324,8 @@ fig, ax = plt.subplots(2,1)
 ax[0].vlines(Napprox,np.min(res[:,5]),np.max(res[:,5]),linestyles='--')
 ax[0].plot(res[:,1],res[:,4],'^')
 ax[0].plot(res[:,1],res[:,5])
+ax[0].set_ylabel("Standard deviation")
 
-ax[1].plot(res[:,1],res[:,7],'^')
-ax[1].plot(res[:,1],res[:,8])
+ax[1].plot(res[:,1],res[:,6],'^')
+ax[1].plot(res[:,1],res[:,7])
+ax[1].set_ylabel("Error of the mean (%)")

@@ -46,7 +46,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     wl_sub_vec = wl_vec[pix_sub_vec]
     
     ### Generate pairs of pixels
-    chosen_pix = choose_pixels(train_pix, bin_method='average')
+    chosen_pix = choose_pixels(train_pix, bin_method='median')
     cmb_pix = generate_combinations(chosen_pix, pix_sub_vec)
 
     ### Pixel operations
@@ -67,7 +67,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     
 
     ### Test multiple models of emissivity until we satisfy the threshold for 
-    ### the coefficient of variation
+    ### the interquartile dispersion
     logR = tf.calculate_logR(data_spl, wl_v0, wl_v1)
     
     # 1. Calculate the temperature with the simple model
@@ -83,7 +83,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     
     model_training = []
     
-    while Tmetric > sc.cv_threshold and nunk < sc.max_poly_order:
+    while Tmetric > sc.threshold and nunk < sc.max_poly_order:
         # Define the goal function
         f = lambda pc: goal_function(pc, logR, wl_v0, wl_v1, wl_min, wl_max)
         
@@ -131,7 +131,7 @@ def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
     test_pix = pix_sub_vec[test_idx]
     wl_sub_vec = wl_vec[pix_sub_vec]
     ### Generate pairs of pixels
-    chosen_pix = choose_pixels(test_pix, bin_method='average')
+    chosen_pix = choose_pixels(test_pix, bin_method='median')
     cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
 
     ### Pixel operations

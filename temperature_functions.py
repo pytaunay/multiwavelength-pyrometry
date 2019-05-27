@@ -36,8 +36,8 @@ def calculate_logR(data_spl, wl_v0, wl_v1):
     logR_array = []
     for wl0, wl1 in zip(wl_v0, wl_v1):                
         # Corresponding data from the filtered data
-        res0 = 10**splev(wl0, data_spl)
-        res1 = 10**splev(wl1, data_spl)
+        res0 = np.exp(splev(wl0, data_spl))
+        res1 = np.exp(splev(wl1, data_spl))
       
         # Ratio of intensities
         R = res0/res1
@@ -74,14 +74,13 @@ def ce_temperature(logR, wl_v0, wl_v1):
         
         ### Temperature
         Tout = 1/invT
-        Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
+        Tout *= sc.C2 * (1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
-        print('Coeffs: ', '[]', '\t p-value:',normaltest(Tleft)[1])
-        
+        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout)
+    # If there is some issue with the computation, avoid this data point    
     except:
-        Tave,std,rse = 1e5 * np.ones(3)
+        Tave,Tstd,Tmetric = 1e5 * np.ones(3)
     
     return Tave, Tstd, Tmetric   
    
@@ -117,11 +116,11 @@ def nce_temperature(poly_coeff,logR,
         
         ### Temperature
         Tout = 1/invT
-        Tout *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
+        Tout *= sc.C2 * (1/wl_v1 - 1/wl_v0)
     
         ### Returns
         Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
-        print('Coeffs: ', poly_coeff, '\t p-value:',normaltest(Tleft)[1])
+#        print('Coeffs: ', poly_coeff, '\t p-value:',normaltest(Tleft)[1])
     except:
         Tave, Tstd, Tmetric = 1e5 * np.ones(3)
     

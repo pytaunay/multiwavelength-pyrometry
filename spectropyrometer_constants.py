@@ -30,7 +30,7 @@ cv_threshold = 5e-3 # Coefficient of variation (%) before we consider the fit
 eps0 = 1.0
 
 
-window_length = (int)(pix_slice) # Window length for the moving average
+window_length = (int)(pix_slice+1) # Window length for the moving average
 medfilt_kernel = 101 # Kernel size for the median filter
-#if window_length % 2 == 0:
-#    window_length += 1
+
+ksplits = 7

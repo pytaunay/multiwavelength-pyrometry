@@ -23,82 +23,81 @@ import itertools
 
 from spectropyrometer_constants import pix_slice
 
-''' Function: choose_pixels
-Finds the pixels from which we will compute the "two-wavelengths" temperatures
-Inputs:
-    - pix_vec: vector of pixels with which we work
-    - bin_method: the method by which a pixel is picked from a bin. "Average"
-    uses the average value of the boundaries of the pixel bin. "Random" picks
-    a random pixel within the boundaries of the pixel bin
-Outputs:
-    - chosen_pix: vector of chosen pixels
-'''
+
 def choose_pixels(pix_vec,bin_method='average'):
-    ### Bin the pixels
-    lo_bins = pix_vec[0::pix_slice]
-    hi_bins = pix_vec[pix_slice-1::pix_slice]
-    
-    
-    ### For each bin, find a pixel
-    chosen_pix = []
-    for idx in range(len(lo_bins)):
-        # Find the low and high bounds of that slice
-        lo = lo_bins[idx]
+    ''' 
+    Finds the pixels from which we will compute the "two-wavelengths" tempera-
+    tures
+    Inputs:
+        - pix_vec: vector of pixels with which we work
+        - bin_method: the method by which a pixel is picked from a bin. "Average"
+        uses the average value of the boundaries of the pixel bin. "Random" picks
+        a random pixel within the boundaries of the pixel bin. "Median" picks
+        the median value of the bin.
+    Outputs:
+        - chosen_pix: vector of chosen pixels
+    '''
+    ### In the case of the median it is easy to figure out the indexing
+    if bin_method == 'median':
+        # If the pixel slice is even, then we will have to add one to it
+        if np.mod(pix_slice,2) == 0:
+            lpix_slice = pix_slice + 1
+        else:
+            lpix_slice = pix_slice
         
-        # If the slice is out of bounds, pick last element
-        try:
-            hi = hi_bins[idx]
-        except:
-            hi = pix_vec[-1]
-                
-        
-        # Pick a pixel in the bin
-        # Can be the average of the boundaries of the bin or a random pixel
-        if bin_method == 'average':
-            pix_idx = (int)(np.average([lo,hi]))
-        elif bin_method == 'random':
-            pix_idx = np.random.choice(pix_vec[lo:hi],size=1)[0]
+        # Pick the median of each bin of size pix_slice by grabbing numbers
+        # at every pix_slice / 2: [0::(int)(lpix_slice/2)]
+        # Then grab only the center of each bin; otherwise we also grab the
+        # beginning of each bin as well: [1::2]
+        chosen_pix = pix_vec[0::(int)(lpix_slice/2)][1::2]
+    else:
+        ### Bin the pixels
+        lo_bins = pix_vec[0::pix_slice]
+        hi_bins = pix_vec[pix_slice-1::pix_slice]
         
         
-        chosen_pix.append(pix_idx)
-    chosen_pix = np.array(chosen_pix)  
+        ### For each bin, find a pixel
+        chosen_pix = []
+        for idx in range(len(lo_bins)):
+            # Find the low and high bounds of that slice
+            lo = lo_bins[idx]
+            
+            # If the slice is out of bounds, pick last element
+            try:
+                hi = hi_bins[idx]
+            except:
+                hi = pix_vec[-1]
+                    
+            
+            # Pick a pixel in the bin
+            # Can be the average of the boundaries of the bin or a random pixel
+            if bin_method == 'average':
+                pix_idx = (int)(np.average([lo,hi]))
+            elif bin_method == 'random':
+                pix_idx = np.random.choice(pix_vec[lo:hi],size=1)[0]
+            
+            
+            chosen_pix.append(pix_idx)
+            
+    chosen_pix = np.array(chosen_pix,dtype=np.int64)  
 
     return chosen_pix
 
-
-'''
-Function: generate_combinations
-Generates the pixel combinations that are used to compute the estimated 
-"two-wavelengths" temperature
-Inputs:
-    - chosen_pix: the subset of pixels with which we work 
-    - pix_vec: all of the pixels
-Outputs:
-    - cmb_pix: the array of pixel combinations    
-'''
 def generate_combinations(chosen_pix,pix_vec):
+    '''
+    Function: generate_combinations
+    Generates the pixel combinations that are used to compute the estimated 
+    "two-wavelengths" temperature
+    Inputs:
+        - chosen_pix: the subset of pixels with which we work 
+        - pix_vec: all of the pixels
+    Outputs:
+        - cmb_pix: the array of pixel combinations    
+'''
     cmb_pix = []
 
     for i,j in itertools.combinations(chosen_pix,2):
         cmb_pix.append([i,j])
-
-#    # For each pixel p0 we picked...
-#    for p0 in chosen_pix:
-#        
-#        # Get corresponding pair pixel above and below this pixel p0
-#        # They belong to other slices
-#        p1vec_p = pix_vec[p0::pix_slice]
-#        p1vec_m = pix_vec[p0::-pix_slice]
-#        
-#        # Create a vector of pixels, remove any duplicates, make sure we do not
-#        # include p0
-#        p1vec = np.concatenate((p1vec_m,p1vec_p))
-#        p1vec = np.unique(p1vec)
-#        p1vec = p1vec[p1vec != p0]
-#        
-#        # Create the list of combinations        
-#        for p1 in p1vec:      
-#            cmb_pix.append((p0,p1))
 #            
     cmb_pix = np.array(cmb_pix)
     return cmb_pix

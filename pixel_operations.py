@@ -15,14 +15,11 @@
 # 
 # Contact info: https:/github.com/pytaunay
 # 
-# Source: https:/github.com/pytaunay/ILX526A
-
 
 import numpy as np
 import itertools
 
 from spectropyrometer_constants import pix_slice
-
 
 def choose_pixels(pix_vec,bin_method='average'):
     ''' 

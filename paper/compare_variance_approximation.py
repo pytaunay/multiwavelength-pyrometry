@@ -161,7 +161,7 @@ def generate_Taverage_distribution(sigma_I,
         That *= C2 * ( 1/wl_v1 - 1/wl_v0)
           
         # Filter out outliers
-        Tave, Tstd, Tmetric, Tleft = tukey_fence(That, method = 'dispersion')
+        Tave, Tstd, Tmetric, Tleft = tukey_fence(That)
         
         ### Average of all Thats is the estimate of the true temperature
         Tave = np.average(Tleft)

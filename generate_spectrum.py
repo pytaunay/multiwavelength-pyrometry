@@ -62,18 +62,19 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
         - pix_vec_sub: the subset of pixels that we are dealing with (we remove 
         the edges after the moving average)
     '''
-    # Intensity from Wien's approximation
+    # Intensity from Wien's approximation: true data
     I_calc = wien_approximation(wl_vec,T,f_eps)
     
+    # Add some emission lines
     if el is not None:
         el_out = generate_emission_line(el, wl_vec, I_calc)
         I_calc += el_out
     
-    # Add some noise and take the log base 10
+    # Add some noise and take the log of the data
     noisy_data = np.random.normal(I_calc,0.1*I_calc)
-    log_noisy = np.log10(noisy_data)
+    log_noisy = np.log(noisy_data)
     
-#    # Find the peaks in the data
+    # Find the peaks in the data from emission lines
 #    peaks = find_peaks_cwt(log_noisy,np.array([sc.window_length/2]))
 #    
 #    # Remove the peaks
@@ -99,41 +100,17 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
 #        # Overwrite
 #        nopeak[pxm:pxM+1] = np.arange(pxm,pxM+1,1) * fit[0] + fit[1]
     
-    # Median filter
-#    log_med = medfilt(nopeak,sc.window_length+1)
-    log_med = moving_average(nopeak,sc.window_length+1)
-    
-    # Moving average
+    # Moving average filter
     wl = sc.window_length
-#    data_padded = np.pad(log_med, 
-#                         (wl//2, wl-1-wl//2), 
-#                         mode='edge')
-    
-#    # Not so much for lower values; a linear fit to the data is better there
-#    m_dp,b_dp = np.polyfit(wl_vec[window_length:2*window_length],
-#                     data_padded[window_length:2*window_length],1)
-    
-    #data_padded[0:window_length] = m_dp*lnm_vec[0:window_length] + b_dp
-#    filtered_data = np.convolve(data_padded, 
-#                                np.ones((window_length,))/window_length, 
-#                                mode='valid')
+    log_med = moving_average(nopeak,wl)
 
-#    filtered_data = np.convolve(data_padded, 
-#                                np.ones((wl,))/wl, 
-#                                mode='valid')
-    
-#    filtered_data = smooth(log_med,window_len=1)
-    
     
     ### Remove the edge effects
-    wl_vec_sub = wl_vec[wl:-wl]
-#    log_med = log_med[wl:-wl]
-    log_med = log_med[(int)(wl/2):-(int)(wl/2)]
-    pix_vec_sub = pix_vec[wl:-wl]
-    
-#    print(len(log_med),len(wl_vec_sub))s
-    
-    ### Fit a line through the noise with some smoothing
+    wl_vec_sub = wl_vec[wl-1:-(wl-1)]
+    log_med = log_med[(int)((wl-1)/2):-(int)((wl-1)/2)]
+    pix_vec_sub = pix_vec[wl-1:-(wl-1)]
+        
+    ### Fit a spline to access data easily
     data_spl = splrep(wl_vec_sub,log_med)
     
     return I_calc,noisy_data,log_med,data_spl,pix_vec_sub

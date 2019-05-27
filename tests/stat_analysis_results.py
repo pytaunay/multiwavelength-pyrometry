@@ -65,14 +65,14 @@ sig_acc = np.array([3.67e-5,
                     2.12e-4])
 
 
-fig,ax = plt.subplots(2,1)
-ax[0].plot(Nwl,sig_mc,'k^')
-#ax[0].plot(Nwl,sig_app,'^')
-ax[0].plot(Nwl,sig_acc,'ko')
+fig,ax = plt.subplots(1,1)
+ax.plot(Nwl,sig_mc,'k^')
+ax.plot(Nwl,sig_app,'^')
+ax.plot(Nwl,sig_acc,'ko')
 
-ax[1].plot(Nwl,mu_mc,'k^')
-#ax[1].plot(Nwl,mu_app,'^')
-ax[1].plot(Nwl,mu_acc,'ko')
+#ax[1].plot(Nwl,mu_mc,'k^')
+##ax[1].plot(Nwl,mu_app,'^')
+#ax[1].plot(Nwl,mu_acc,'ko')
 
 C2 = 14384000
 T0 = 1500
@@ -82,8 +82,8 @@ R = 7
 
 #Nlim = (C2/(T0*lambda_0) * R)
 Nlim = C2/(T0*lambda_0) * R/(1+R)**2*0.1/0.01
-ax[0].axvline(x=Nlim,color='k',linestyle='--')
-ax[1].axvline(x=Nlim,color='k',linestyle='--')
+ax.axvline(x=Nlim,color='k',linestyle='--')
+#ax[1].axvline(x=Nlim,color='k',linestyle='--')
 
 #### DIRECTLY FROM SIMULATIONS
 #### 1000 MC samples, T = 3000 K, sigma = 0.01, 

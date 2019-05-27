@@ -119,7 +119,7 @@ def nce_temperature(poly_coeff,logR,
         Tout *= sc.C2 * (1/wl_v1 - 1/wl_v0)
     
         ### Returns
-        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout, method = 'dispersion')
+        Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout)
 #        print('Coeffs: ', poly_coeff, '\t p-value:',normaltest(Tleft)[1])
     except:
         Tave, Tstd, Tmetric = 1e5 * np.ones(3)

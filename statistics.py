@@ -22,18 +22,15 @@ import numpy as np
 from scipy.stats import iqr
 
 
-def tukey_fence(Tvec, method='cv'):
+def tukey_fence(Tvec, delta=31.3):
     '''
     Function: tukey_fence
     Descritpion: Removes outliers using Tukey fencing
     Inputs:
         - Tvec: some vector
-        - method: a keyword for a metric to evaluate the data dispersion. It
-        can either be 
-            1. 'cv' (default) to calculate the coefficient of variation which
-            is defined as standard_deviation / mean, or
-            2. 'dispersion' to calculate the interquartile dispersion which is
-            defined as (Q3-Q1)/(Q3+Q1)
+        - delta: a fencing value above/below the third/first quartile, 
+        respectively. Values outside of [Q1 - delta * IQR, Q3 + delta*IQR] are
+        discarded
     Outputs:
         - Average of vector w/o outliers
         - Standard deviation of vector w/o outliers
@@ -44,21 +41,17 @@ def tukey_fence(Tvec, method='cv'):
     T_iqr = iqr(Tvec)
     T_qua = np.percentile(Tvec,[25,75])
     
-    min_T = T_qua[0] - 1.25*T_iqr
-    max_T = T_qua[1] + 1.25*T_iqr
+    min_T = T_qua[0] - delta * T_iqr
+    max_T = T_qua[1] + delta * T_iqr
     
     T_left = Tvec[(Tvec>min_T) & (Tvec<max_T)]
     
-    ### Calculate standard deviation, average
+    ### Calculate standard deviation, average of the fenced data
     Tstd = np.std(T_left)
     Tave = np.mean(T_left)
     
-    ### Calculate a metric
-    if method == 'cv':
-        Tcv = Tstd/Tave*100
-        metric = Tcv
-    elif method == 'dispersion':
-        dispersion = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
-        metric = dispersion
+    ### Calculate a metric: coefficient of quartile dispersion
+    dispersion = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
+    metric = dispersion
 
     return Tave, Tstd, metric, T_left

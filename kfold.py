@@ -96,7 +96,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
         sol = minimize(f, pc0,
                        method='Nelder-Mead',
                        options=min_options)
-
+        print(sol)
         # Calculate temperature from solution
         Tave, Tstd, Tmetric = tf.nce_temperature(sol.x, logR,
                     wl_v0, wl_v1,

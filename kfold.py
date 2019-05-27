@@ -26,12 +26,13 @@ import spectropyrometer_constants as sc
 import temperature_functions as tf
 
 from pixel_operations import choose_pixels, generate_combinations
-from generate_spectrum import wien_approximation
 
 from goal_function import goal_function
 
 def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     '''
+    Training phase: optimize each emissivity model individually on a training 
+    subset.
     Inputs:
         - data_spl: spline representation of the filtered intensity
         - pix_sub_vec: the pixel indices that are used to define the filtered 
@@ -40,9 +41,10 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
         training 
         - wl_vec: the full wavelength vector
     '''
-    ### Get the pixels we will use for training
+    ### Get the pixels and wavelengths we will use for training
     train_pix = pix_sub_vec[train_idx]
     wl_sub_vec = wl_vec[pix_sub_vec]
+    
     ### Generate pairs of pixels
     chosen_pix = choose_pixels(train_pix, bin_method='average')
     cmb_pix = generate_combinations(chosen_pix, pix_sub_vec)
@@ -166,11 +168,27 @@ def testing(data_spl, pix_sub_vec, test_idx, wl_vec, model_training):
 
     return model_metric
 
-def order_selection(data_spl,filtered_data,
+def order_selection(data_spl,
                        pix_sub_vec,wl_vec,
                        bb_eps):
+    '''
+    Select the correct polynomial order by performing the k-fold cross-valida-
+    tion method. 
+    The k-folds are generated randomly based on a randomly-generated seed.
+    They split the indices for the wavelengths into training and testing data-
+    sets. For example, the following indices could be used for a vector of 
+    indices of size 2900 that starts from 50:
+        original: [50, 51, 52, ... , 2949]
+        training: [50, 51, 52, ..., 2800]
+        testing: [2801, ..., 2949]: 
+    Inputs:
+        - data_spl: spline representation of the filtered data
+        - pix_sub_vec: indices of wavelengths over which the spline is defined
+        - wl_vec: all input wavelengths
+        - bb_eps: a black-body emissivity function
+    '''
     ### Generate a training and testing dataset for the pixels themselves
-    n_splits = 7
+    n_splits = sc.ksplits
     kf = KFold(n_splits = n_splits, shuffle=True, 
                random_state = np.random.randint(0,1000))
     metric_array = np.zeros((n_splits, sc.max_poly_order+1))

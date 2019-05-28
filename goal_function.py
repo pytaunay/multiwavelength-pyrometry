@@ -51,10 +51,10 @@ def goal_function(poly_coeff, logR, wl_v0, wl_v1, wl_min, wl_max):
 
             # Temperature
             T = 1/invT
-            T *= sc.C2 * ( 1/wl_v1 - 1/wl_v0)
+            T *= sc.C2 * (1/wl_v1 - 1/wl_v0)
 
             # Calculate the coefficient of variation
-            Tave, Tstd, Tmetric, _ = tukey_fence(T, method='dispersion')
+            Tave, Tstd, Tmetric, _ = tukey_fence(T)
             
             ret = Tmetric
             

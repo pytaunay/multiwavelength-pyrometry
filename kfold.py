@@ -72,7 +72,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     
     # 1. Calculate the temperature with the simple model
     Tave, Tstd, Tmetric = tf.ce_temperature(logR, wl_v0, wl_v1)
-    print("Simple temperature model:", Tave, Tstd, Tmetric) 
+#    print("Simple temperature model:", Tave, Tstd, Tmetric) 
     
     # 2. Calculate the temperature with a variable emissivity 
     # Do we have a "good enough" fit?   
@@ -96,7 +96,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
         sol = minimize(f, pc0,
                        method='Nelder-Mead',
                        options=min_options)
-        print(sol)
+#        print(sol)
         # Calculate temperature from solution
         Tave, Tstd, Tmetric = tf.nce_temperature(sol.x, logR,
                     wl_v0, wl_v1,
@@ -104,7 +104,7 @@ def training(data_spl, pix_sub_vec, train_idx, wl_vec):
                     wl_min,
                     wl_max)
         
-        print("Advanced temperature model:", Tave, Tstd, Tmetric, sol.x)
+#        print("Advanced temperature model:", Tave, Tstd, Tmetric, sol.x)
         
         nunk = nunk + 1
         model_training.append(sol.x)
@@ -196,11 +196,11 @@ def order_selection(data_spl,
 
     ### For all pairs of training and testing datasets...
     for train_idx, test_idx in kf.split(pix_sub_vec):     
-        print("-------TRAINING--------")
+#        print("-------TRAINING--------")
         ### Training
         model_training = training(data_spl, pix_sub_vec, train_idx, wl_vec)
                 
-        print("-------TESTING--------")
+#        print("-------TESTING--------")
         ### Testing
         model_metric = testing(data_spl, pix_sub_vec, test_idx, wl_vec, 
                                model_training)
@@ -209,7 +209,7 @@ def order_selection(data_spl,
         
     for idx in range(len(metric_all)):
         nelem = len(metric_all[idx])
-        print(metric_all[idx])
+#        print(metric_all[idx])
         metric_array[idx,0:nelem] = np.array(metric_all[idx])
 
     # Count number of entries that are non-zero for each polynomial order
@@ -235,7 +235,7 @@ def order_selection(data_spl,
         
     poly_order = np.nanargmin(mean)
 
-    print("Mean of all k-folds:", mean)
-    print("Chosen polynomial order: ", poly_order)
+#    print("Mean of all k-folds:", mean)
+#    print("Chosen polynomial order: ", poly_order)
  
     return poly_order

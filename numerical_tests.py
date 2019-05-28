@@ -75,7 +75,7 @@ def select_true_emissivity(chosen_case):
 # - "gray_body"
 # - "tungsten"
 # - "second_order"
-chosen_case = 'tungsten'
+chosen_case = 'gray_body'
 
 ## Wavelength range
 wl_min = 400
@@ -96,13 +96,6 @@ f_eps, T0 = select_true_emissivity(chosen_case)
 wl_vec = np.linspace(wl_min,wl_max,(int)(npix))
 pix_vec = np.linspace(0,npix-1,npix,dtype=np.int64)
 
-#### Chosen emissivity function
-model_list = []
-for it in range(1):
-    model_list.append(f_eps)
-
-model_list = np.array(model_list)
-
 ### Emission lines
 #el = np.array([350,400,450,500,600,650,800])
 #el = None
@@ -111,109 +104,77 @@ model_list = np.array(model_list)
 f,ax = plt.subplots(len(model_list),2)
 
 ### Iterate over multiple models
-it = 0
-for f_eps in model_list:
-    print("Model: ", it)
+### Generate some data
+# I_calc -> true radiance
+# noisy_data -> perturbed radiance
+# filtered_data -> averaged log(noisy_data)
+# data_spl -> spline representation of filtered_data (no smoothing)
+# pix_sub_vec -> pixels numbers used to address the main wavelength vector
+# wl_vec -> main wavelength vector
+# wl_sub_vec -> subset of the main wavelength vector
+I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
+        wl_vec,T0,pix_vec,f_eps)
+wl_sub_vec = wl_vec[pix_sub_vec]
 
-    ### Generate some data
-    # I_calc -> true radiance
-    # noisy_data -> perturbed radiance
-    # filtered_data -> averaged log(noisy_data)
-    # data_spl -> spline representation of filtered_data (no smoothing)
-    # pix_sub_vec -> pixels numbers used to address the main wavelength vector
-    # wl_vec -> main wavelength vector
-    # wl_sub_vec -> subset of the main wavelength vector
-    I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
-            wl_vec,T0,pix_vec,f_eps)
-    wl_sub_vec = wl_vec[pix_sub_vec]
-    
 
-    ### Choose the order of the emissivity w/ k-fold
-    poly_order = order_selection(data_spl,
-                       pix_sub_vec,wl_vec,
-                       bb_eps)
-    
-    ### Calculate the temperature using the whole dataset
-    # Pixel operations
-    chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
-    cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+### Choose the order of the emissivity w/ k-fold
+poly_order = order_selection(data_spl,
+                   pix_sub_vec,wl_vec,
+                   bb_eps)
 
-    # Compute the temperature
-    Tave, Tstd, Tmetric, sol = optimum_temperature(data_spl,cmb_pix,
-                                                pix_sub_vec,wl_vec,
-                                                poly_order)
+### Calculate the temperature using the whole dataset
+# Pixel operations
+chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
+cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
 
-    ### Reconstruct data
-    # Black-body radiance based on the calculated temperature
-    bb_reconstructed = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
-    # Emissivity is calculated from the filtered data
-    eps_vec_reconstructed = np.exp(filtered_data)/bb_reconstructed
-    # Since we get epsilon from the filtered data, "reconstructed_data" will be
-    # exactly like "filtered_data"
-    reconstructed_data = bb_reconstructed * eps_vec_reconstructed 
+# Compute the temperature
+Tave, Tstd, Tmetric, sol = optimum_temperature(data_spl,cmb_pix,
+                                            pix_sub_vec,wl_vec,
+                                            poly_order)
 
-    # Alternative using the polynomial from optimization
-    reconstructed_alt = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
-    wl_min = np.min(wl_sub_vec)
-    wl_max = np.max(wl_sub_vec)
-    
-    # If we found a polynomial emissivity, calculate its numerical values
-    if poly_order > 0:
-        pol = Polynomial(sol.x,[wl_min,wl_max])
-        eps_vec = polynomial.polyval(wl_sub_vec,pol.coef)
-    # If the emissivity model is constant, average its value over the 
-    # wavelengths
-    else:
-        eps_ave = np.average(eps_vec_reconstructed)
-        eps_vec = eps_ave * np.ones(len(wl_sub_vec))
+### Reconstruct data
+# Black-body radiance based on the calculated temperature
+bb_reconstructed = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
+# Emissivity is calculated from the filtered data
+eps_vec_reconstructed = np.exp(filtered_data)/bb_reconstructed
+# Since we get epsilon from the filtered data, "reconstructed_data" will be
+# exactly like "filtered_data"
+reconstructed_data = bb_reconstructed * eps_vec_reconstructed 
+
+# Alternative using the polynomial from optimization
+reconstructed_alt = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
+wl_min = np.min(wl_sub_vec)
+wl_max = np.max(wl_sub_vec)
+
+# If we found a polynomial emissivity, calculate its numerical values
+if poly_order > 0:
+    pol = Polynomial(sol.x,[wl_min,wl_max])
+    eps_vec = polynomial.polyval(wl_sub_vec,pol.coef)
+# If the emissivity model is constant, average its value over the 
+# wavelengths
+else:
+    eps_ave = np.average(eps_vec_reconstructed)
+    eps_vec = eps_ave * np.ones(len(wl_sub_vec))
+
+# The "alternative" reconstruction where we use the optimized function
+# It results in radiances that are offset by a multiplicative constant    
+reconstructed_alt *= eps_vec
+
+### Plots
+ax[0].semilogy(wl_vec[0::99],1.3*I_calc[0::99],'k:')
+ax[0].semilogy(wl_vec[0::99],0.7*I_calc[0::99],'k:')
+ax[0].semilogy(wl_vec[0::99],I_calc[0::99],'k-')
         
-    reconstructed_alt *= eps_vec
+ax[0].semilogy(wl_sub_vec,reconstructed_data)
 
+T_string = str(round(Tave,1)) + " K"
+error = np.abs((Tave-T0)/T0)*100
 
+T_string += "\n" + str(round(error,2)) + " %"
+ax[0].text(0.8*wl_max,np.average(I_calc)/100,T_string)
 
-    ### Plots
-    if len(model_list) > 1:
-        if it == 0:
-            ax[it][0].set_title("Intensity")
-            ax[it][1].set_title("Emissivity")
-    
-        # Intensity
-        ax[it][0].semilogy(wl_vec,noisy_data)
-        ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
-        ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
-    
-        T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
-        error = np.abs((Tave-T0)/T0)*100
-    
-        T_string += "\n" + str(round(error,2)) + " %"
-        ax[it][0].text(0.8*wl_max,np.average(I_calc)/100,T_string)
-    
-        # Emissivity
-        ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
-        ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
-        ax[it][1].plot(wl_sub_vec,eps_vec,'-.')
-    
-        it += 1
-    else:
-        ax[0].set_title("Intensity")
-        ax[1].set_title("Emissivity")
-    
-        # Intensity
-#        ax[0].semilogy(wl_vec,noisy_data)
-#        ax[0].semilogy(wl_vec,I_calc)
-        ax[0].semilogy(wl_vec[0::99],1.3*I_calc[0::99])
-        ax[0].semilogy(wl_vec[0::99],0.7*I_calc[0::99])
-        ax[0].semilogy(wl_sub_vec,reconstructed_data)
-#        ax[0].semilogy(wl_sub_vec,reconstructed_alt)
-    
-        T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
-        error = np.abs((Tave-T0)/T0)*100
-    
-        T_string += "\n" + str(round(error,2)) + " %"
-        ax[0].text(0.8*wl_max,np.average(I_calc)/100,T_string)
-    
-        # Emissivity
-        ax[1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
-        ax[1].plot(wl_sub_vec,eps_vec_reconstructed) 
-#        ax[1].plot(wl_sub_vec,eps_vec,'-.')
-    
+# Emissivity
+ax[1].plot(wl_vec,f_eps(wl_vec,Tave),'k-')
+ax[1].plot(wl_sub_vec,eps_vec_reconstructed) 
+ax[1].set_ylim([0,1])
+

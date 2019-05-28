@@ -25,7 +25,7 @@ C2 = 1.4384e7 # nm K
 
 pix_slice = 50 # Total number of pixels to take into a slice
 max_poly_order = 4 # Maximum polynomial order to consider
-threshold = 1e-4 # Threshold before the fit is considered to be "bad"
+threshold = 5e-3 # Threshold before the fit is considered to be "bad"
 eps0 = 1.0
 
 

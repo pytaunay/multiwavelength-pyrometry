@@ -101,7 +101,7 @@ pix_vec = np.linspace(0,npix-1,npix,dtype=np.int64)
 #el = None
 
 ### Plots
-f,ax = plt.subplots(len(model_list),2)
+f,ax = plt.subplots(1,2)
 
 ### Iterate over multiple models
 ### Generate some data

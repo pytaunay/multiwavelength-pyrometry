@@ -149,7 +149,7 @@ for idx,f_eps in enumerate(model_list):
                                                 poly_order)
 
     ### Store data
-    err = np.abs(Tave/T0-1)*100
+    err = (Tave/T0-1)*100
     polyvec.append(poly_order)
     Tavevec.append(Tave)
     errvec.append(err)
@@ -157,3 +157,6 @@ for idx,f_eps in enumerate(model_list):
     print(idx,err,poly_order,Tave)
     
     
+print(np.mean(np.abs(errvec)),
+      np.mean(polyvec),
+      np.mean(Tavevec))

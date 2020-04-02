@@ -1,0 +1,176 @@
+# Copyright (C) 2019 Pierre-Yves Taunay
+# 
+# This program is free software: you can redistribute it andor modify
+# it under the terms of the GNU Affero General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https:/www.gnu.org/licenses/>.
+# 
+# Contact info: https:/github.com/pytaunay
+# 
+# Source: https:/github.com/pytaunay/ILX526A
+
+
+import numpy as np
+from numpy.polynomial import Polynomial, polynomial
+
+import matplotlib.pyplot as plt
+import generate_spectrum as gs
+
+from pixel_operations import choose_pixels, generate_combinations
+from temperature_functions import optimum_temperature
+from kfold import order_selection
+
+from scipy.interpolate import splrep
+
+import spectropyrometer_constants as sc
+
+
+### Emissivity functions
+# Tungsten 2000 K emissivity and polynomial of order 1 to fit it
+w_wl = np.array([300,350,400,500,600,700,800,900])
+w_eps_data = np.array([0.474,0.473,0.474,0.462,0.448,0.436,0.419,0.401])
+
+w_m,w_b = np.polyfit(w_wl,w_eps_data,deg=1)
+w_eps = lambda wl,T: w_m*wl + w_b
+
+# Black and gray body
+bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
+gr_eps = lambda wl,T: 0.1 * np.ones(len(wl))
+
+# Artificial tests
+art_wl = np.array([300,500,1100])
+art_eps_data = np.array([1,0.3,1])
+art_fac = np.polyfit(art_wl,art_eps_data,deg=2)
+
+a0,a1,a2 = art_fac
+art_eps = lambda wl,T: a0*wl**2 + a1*wl + a2
+#
+#### Vectors of pixels and wavelengths
+#wl_vec = np.linspace(300,1100,(int)(3000))
+#pix_vec = np.linspace(0,2999,3000)
+#pix_vec = np.array(pix_vec,dtype=np.int64)
+
+### Generate some data
+data = np.genfromtxt('data/duvaut-1995/tantalum-irradiance.csv', delimiter=',',skip_header=1)
+noisy_data = data[:,1] / (1e3 * 1e4)
+wl_vec = data[:,0] * 1000 # Wavelengths are in micro-meter
+#wl_vec = np.array(wl_vec,dtype=np.int64)
+pix_vec = np.linspace(0,len(wl_vec)-1,len(wl_vec))
+pix_vec = np.array(pix_vec,dtype=np.int64)
+
+# Take the log of the data
+log_noisy = np.log(noisy_data)
+
+# Remove the peaks
+nopeak = np.copy(log_noisy)
+
+    
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+# Moving average filter
+#wl = sc.window_length
+wl = 11
+log_med = moving_average(nopeak,wl)
+
+### Remove the edge effects
+if wl > 1:
+    wl_vec_sub = wl_vec[wl-1:-(wl-1)]
+    log_med = log_med[(int)((wl-1)/2):-(int)((wl-1)/2)]
+    pix_vec_sub = pix_vec[wl-1:-(wl-1)]
+else:
+    wl_vec_sub = np.copy(wl_vec)
+    pix_vec_sub = np.copy(pix_vec)
+        
+### Fit a spline to access data easily
+data_spl = splrep(wl_vec_sub,log_med)
+
+#return I_calc,noisy_data,log_med,data_spl,pix_vec_sub
+
+pix_sub_vec = np.copy(pix_vec_sub)
+filtered_data = np.copy(log_med)
+
+#
+#I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
+#        wl_vec,T,pix_vec,f_eps,el)
+wl_sub_vec = wl_vec[pix_sub_vec]
+#
+#
+### Choose the order of the emissivity w/ k-fold
+poly_order = order_selection(data_spl,
+                       pix_sub_vec,wl_vec,
+                       bb_eps)
+
+### Calculate the temperature using the whole dataset
+# Pixel operations
+chosen_pix = choose_pixels(pix_sub_vec,bin_method='average')
+cmb_pix = generate_combinations(chosen_pix,pix_sub_vec)
+
+# Compute the temperature
+Tave, Tstd, Tmetric, sol = optimum_temperature(data_spl,cmb_pix,
+                                            pix_sub_vec,wl_vec,
+                                            poly_order)
+
+### Reconstruct data
+bb_reconstructed = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
+#eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
+eps_vec_reconstructed = np.exp(filtered_data)/bb_reconstructed
+# Since we get epsilon from the filtered data, "reconstructed_data" will be
+# exactly like "filtered_data"
+reconstructed_data = bb_reconstructed * eps_vec_reconstructed # exactly filtered   
+
+# Alternative using the polynomial from optimization
+reconstructed_alt = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
+wl_min = np.min(wl_sub_vec)
+wl_max = np.max(wl_sub_vec)
+
+if poly_order > 0:
+    cheb = Polynomial(sol.x,[wl_min,wl_max])
+    eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
+    
+else:
+    eps_ave = np.average(eps_vec_reconstructed)
+    eps_vec = eps_ave * np.ones(len(wl_sub_vec))
+    
+reconstructed_alt *= eps_vec
+
+
+#### Plots
+fig, ax = plt.subplots(2,1)
+ax[0].semilogy(wl_vec,noisy_data)
+ax[0].semilogy(wl_sub_vec,reconstructed_data)
+#ax[0].semilogy(wl_sub_vec,reconstructed_alt)
+
+data = np.genfromtxt('data/duvaut-1995/tantalum-emissivity.csv', delimiter=',',skip_header=1)
+eps_xp = data[:,1]
+wl_eps_xp = data[:,0] * 1000 # Wavelengths are in micro-meter
+
+ax[1].plot(wl_eps_xp,eps_xp)
+ax[1].plot(wl_sub_vec,eps_vec_reconstructed)
+
+#if it == 0:
+#    ax[it][0].set_title("Intensity")
+#    ax[it][1].set_title("Emissivity")
+#
+## Intensity
+#ax[it][0].semilogy(wl_vec,noisy_data)
+#ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
+#ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
+#
+Ttrue = 573
+T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
+error = np.abs((Tave-Ttrue)/Ttrue)*100
+print(error)
+
+#T_string += "\n" + str(round(error,2)) + " %"
+#ax[0].text(3000,np.average(I_calc)/100,T_string)

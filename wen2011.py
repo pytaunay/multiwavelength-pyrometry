@@ -30,36 +30,15 @@ from kfold import order_selection
 
 from scipy.interpolate import splrep
 
-import spectropyrometer_constants as sc
-
-
-### Emissivity functions
-# Tungsten 2000 K emissivity and polynomial of order 1 to fit it
-w_wl = np.array([300,350,400,500,600,700,800,900])
-w_eps_data = np.array([0.474,0.473,0.474,0.462,0.448,0.436,0.419,0.401])
-
-w_m,w_b = np.polyfit(w_wl,w_eps_data,deg=1)
-w_eps = lambda wl,T: w_m*wl + w_b
-
 # Black and gray body
 bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
 gr_eps = lambda wl,T: 0.1 * np.ones(len(wl))
 
-# Artificial tests
-art_wl = np.array([300,500,1100])
-art_eps_data = np.array([1,0.3,1])
-art_fac = np.polyfit(art_wl,art_eps_data,deg=2)
-
-a0,a1,a2 = art_fac
-art_eps = lambda wl,T: a0*wl**2 + a1*wl + a2
-#
-#### Vectors of pixels and wavelengths
-#wl_vec = np.linspace(300,1100,(int)(3000))
-#pix_vec = np.linspace(0,2999,3000)
-#pix_vec = np.array(pix_vec,dtype=np.int64)
 
 ### Generate some data
 data = np.genfromtxt('data/wen-2011-intensity.csv', delimiter=',',skip_header=1)
+T = 600 # K
+
 noisy_data = data[:,1] / (1e3 * 1e4)
 wl_vec = data[:,0] * 1000 # Wavelengths are in micro-meter
 #wl_vec = np.array(wl_vec,dtype=np.int64)
@@ -168,7 +147,9 @@ ax[1].plot(wl_sub_vec,eps_vec_reconstructed)
 #ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
 #
 #T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
-#error = np.abs((Tave-T)/T)*100
+error = np.abs((Tave-T)/T)*100
+
+print(Tave,error)
 
 #T_string += "\n" + str(round(error,2)) + " %"
 #ax[it][0].text(850,np.average(I_calc)/100,T_string)

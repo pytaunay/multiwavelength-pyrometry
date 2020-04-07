@@ -28,37 +28,42 @@ from pixel_operations import choose_pixels, generate_combinations
 from temperature_functions import optimum_temperature
 from kfold import order_selection
 
-from scipy.interpolate import splrep, splev
-
-
+from scipy.interpolate import splrep,splev
 
 ### Emissivity functions
 # Black and gray body
 bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
 gr_eps = lambda wl,T: 0.1 * np.ones(len(wl))
 
-# Emissivity from Duvaut; same method: generate radiance from emissivity
-data = np.genfromtxt('data/duvaut-1995/tantalum-emissivity.csv', delimiter=',',skip_header=1)
+
+# Emissivity data
+data = np.genfromtxt('data/koirala-2004/al2o3_2360K.csv', delimiter=',',skip_header=1)
+T = 2360
+
+# Transform to wavelength (nm) and sort by increasing wavelength
+wl_eps_xp = 1/data[:,0] * 1e7
 eps_xp = data[:,1]
-wl_eps_xp = data[:,0] * 1000 # Wavelengths are in micro-meter
-T = 573
+
+ret = sorted(zip(wl_eps_xp,eps_xp))
+ret = np.array(ret)
+wl_eps_xp = ret[:,0]
+eps_xp = ret[:,1]
 
 # Spline the data to generate the "true" emissivity
 eps_spl = splrep(wl_eps_xp,eps_xp)
 f_eps = lambda wl,T: splev(wl,eps_spl)
 
-#### Vectors of pixels and wavelengths
+### Vectors of pixels and wavelengths
 wl_vec = np.linspace(np.min(wl_eps_xp),np.max(wl_eps_xp),(int)(3000))
 pix_vec = np.linspace(0,2999,3000)
 pix_vec = np.array(pix_vec,dtype=np.int64)
 
-
 ### Generate some data
 I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
-        wl_vec,T,pix_vec,f_eps)
+        wl_vec,T,pix_vec,f_eps,None)
+
 wl_sub_vec = wl_vec[pix_sub_vec]
-#
-#
+
 ### Choose the order of the emissivity w/ k-fold
 poly_order = order_selection(data_spl,
                        pix_sub_vec,wl_vec,
@@ -99,15 +104,9 @@ reconstructed_alt *= eps_vec
 
 
 #### Plots
-data = np.genfromtxt('data/duvaut-1995/tantalum-irradiance.csv', delimiter=',',skip_header=1)
-radiance = data[:,1] / 1e7
-wl_vec_radiance = data[:,0] * 1000 # Wavelengths are in micro-meter
-
 fig, ax = plt.subplots(2,1)
-ax[0].semilogy(wl_vec_radiance,radiance)
 ax[0].semilogy(wl_vec,noisy_data)
 ax[0].semilogy(wl_sub_vec,reconstructed_data)
-#ax[0].semilogy(wl_sub_vec,reconstructed_alt)
 
 ax[1].plot(wl_eps_xp,eps_xp)
 ax[1].plot(wl_sub_vec,eps_vec_reconstructed)
@@ -121,10 +120,9 @@ ax[1].plot(wl_sub_vec,eps_vec_reconstructed)
 #ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
 #ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
 #
-Ttrue = 573
 T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
-error = np.abs((Tave-Ttrue)/Ttrue)*100
-print(Ttrue,error)
+error = np.abs((Tave-T)/T)*100
+print(T,Tave,error)
 
 #T_string += "\n" + str(round(error,2)) + " %"
 #ax[0].text(3000,np.average(I_calc)/100,T_string)

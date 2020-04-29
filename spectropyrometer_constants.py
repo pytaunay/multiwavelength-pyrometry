@@ -23,13 +23,16 @@ C1 = 1.191e16 # W/nm4/cm2 Sr
 C2 = 1.4384e7 # nm K
 
 
-pix_slice = 50 # Total number of pixels to take into a slice
 max_poly_order = 4 # Maximum polynomial order to consider
-threshold = 5e-3 # Threshold before the fit is considered to be "bad"
+threshold = 1e-2 # Threshold before the fit is considered to be "bad"
 eps0 = 1.0
 
+lchosen = 58 # Number of pixels chosen
+#window_length = (int)(pix_slice+1) # Window length for the moving average
+window_length = 51
+#pix_slice = (int)((3000 - 2*(window_length-1))/lchosen) # Total number of pixels to take into a slice
+pix_slice = 7
 
-window_length = (int)(pix_slice+1) # Window length for the moving average
-medfilt_kernel = 101 # Kernel size for the median filter
+#medfilt_kernel = 101 # Kernel size for the median filter
 
 ksplits = 7

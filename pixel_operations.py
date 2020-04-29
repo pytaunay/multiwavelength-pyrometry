@@ -46,7 +46,10 @@ def choose_pixels(pix_vec,bin_method='average'):
         # at every pix_slice / 2: [0::(int)(lpix_slice/2)]
         # Then grab only the center of each bin; otherwise we also grab the
         # beginning of each bin as well: [1::2]
-        chosen_pix = pix_vec[0::(int)(lpix_slice/2)][1::2]
+        if pix_slice > 1:
+            chosen_pix = pix_vec[0::(int)(lpix_slice/2)][1::2]
+        else:
+            chosen_pix = np.copy(pix_vec)
     else:
         ### Bin the pixels
         lo_bins = pix_vec[0::pix_slice]

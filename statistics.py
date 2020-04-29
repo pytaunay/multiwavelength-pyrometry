@@ -51,6 +51,7 @@ def tukey_fence(Tvec, delta=31.3):
     Tave = np.mean(T_left)
     
     ### Calculate a metric: coefficient of quartile dispersion
+#    print(T_qua[1],T_qua[0])
     dispersion = (T_qua[1] - T_qua[0]) / (T_qua[1] + T_qua[0])
     metric = dispersion
 

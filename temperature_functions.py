@@ -77,6 +77,7 @@ def ce_temperature(logR, wl_v0, wl_v1):
         Tout *= sc.C2 * (1/wl_v1 - 1/wl_v0)
     
         ### Returns
+#        Tout = Tout[Tout>0]
         Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout)
     # If there is some issue with the computation, avoid this data point    
     except:
@@ -119,6 +120,7 @@ def nce_temperature(poly_coeff,logR,
         Tout *= sc.C2 * (1/wl_v1 - 1/wl_v0)
     
         ### Returns
+#        Tout = Tout[Tout>0]
         Tave, Tstd, Tmetric, Tleft = tukey_fence(Tout)
 #        print('Coeffs: ', poly_coeff, '\t p-value:',normaltest(Tleft)[1])
     except:
@@ -177,7 +179,7 @@ def optimum_temperature(data_spl, cmb_pix, pix_vec, wl_vec, order):
         pc0[0] = sc.eps0
     
         # Minimization
-        min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':5000} # Nelder-Mead
+        min_options = {'xatol':1e-15, 'fatol':1e-15, 'maxfev':20000} # Nelder-Mead
         sol = minimize(f, pc0, method = 'Nelder-Mead', options = min_options)
     
         # Calculate temperature from solution

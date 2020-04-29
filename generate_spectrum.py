@@ -106,10 +106,14 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
 
     
     ### Remove the edge effects
-    wl_vec_sub = wl_vec[wl-1:-(wl-1)]
-    log_med = log_med[(int)((wl-1)/2):-(int)((wl-1)/2)]
-    pix_vec_sub = pix_vec[wl-1:-(wl-1)]
-        
+    if wl > 1:
+        wl_vec_sub = wl_vec[wl-1:-(wl-1)]
+        log_med = log_med[(int)((wl-1)/2):-(int)((wl-1)/2)]
+        pix_vec_sub = pix_vec[wl-1:-(wl-1)]
+    else:
+        wl_vec_sub = np.copy(wl_vec)
+        pix_vec_sub = np.copy(pix_vec)
+            
     ### Fit a spline to access data easily
     data_spl = splrep(wl_vec_sub,log_med)
     

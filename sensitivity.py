@@ -65,7 +65,9 @@ it = 0
 ### Windows
 #wdw_array = np.array([3,5,7,9,11,21,31,41,51,61,71,81,91,101,201,301,401,501])
 #wdw_array = np.array([31,41,51,61,71,81,91,101,201,301,401,501])
-wdw_array = np.array([61,71,81,91,101,201,301,401,501])
+#wdw_array = np.array([61,71,81,91,101,201,301,401,501])
+#wdw_array = np.array([101,201,301,401,501])
+wdw_array = np.array([501])
 
 # Intensity from Wien's approximation: true data
 I_calc = gs.wien_approximation(wl_vec,T,chosen_eps)

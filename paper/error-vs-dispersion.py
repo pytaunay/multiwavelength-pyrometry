@@ -34,9 +34,10 @@ from scipy.stats import iqr
 
 import itertools
 from sklearn.neighbors import KernelDensity
-from sklearn.grid_search import GridSearchCV
+#from sklearn.grid_search import GridSearchCV
+from sklearn.model_selection import GridSearchCV
 
-C1 = 1.191e16 # W/nm4/cm2 Sr
+C1 = 1.191e16 # W/nm4/cm2
 C2 = 1.4384e7 # nm K
 
 ### Function definitions

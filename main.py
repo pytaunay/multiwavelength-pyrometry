@@ -83,7 +83,7 @@ for f_eps in model_list:
     
 
     ### Choose the order of the emissivity w/ k-fold
-    poly_order = order_selection(data_spl,filtered_data,
+    poly_order = order_selection(data_spl,
                        pix_sub_vec,wl_vec,
                        bb_eps)
     

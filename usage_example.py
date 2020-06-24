@@ -20,6 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+'''
+File: usage_example.py
+
+Description: example usage of the algorithm. Uses artificially generated data.
+'''
+
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 

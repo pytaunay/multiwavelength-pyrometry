@@ -1,32 +1,35 @@
-# Copyright (C) 2019 Pierre-Yves Taunay
+# MIT License
 # 
-# This program is free software: you can redistribute it andor modify
-# it under the terms of the GNU Affero General Public License as published
-# by the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Copyright (c) 2020 Pierre-Yves Camille Regis Taunay
+#  
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 # 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
 # 
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https:/www.gnu.org/licenses/>.
-# 
-# Contact info: https:/github.com/pytaunay
-# 
-# Source: https:/github.com/pytaunay/ILX526A
-
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
 import matplotlib.pyplot as plt
-import generate_spectrum as gs
 
-from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import optimum_temperature
-from kfold import order_selection
+import algorithm.generate_spectrum as gs
+
+from algorithm.pixel_operations import choose_pixels, generate_combinations
+from algorithm.temperature_functions import optimum_temperature
+from algorithm.kfold import order_selection
 
 ### Emissivity functions
 # Tungsten 2000 K emissivity and polynomial of order 1 to fit it
@@ -38,7 +41,7 @@ w_eps = lambda wl,T: w_m*wl + w_b
 
 # Black and gray body
 bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
-gr_eps = lambda wl,T: 0.1 * np.ones(len(wl))
+gr_eps = lambda wl,T: 0.5 * np.ones(len(wl))
 
 # Artificial tests
 art_wl = np.array([300,500,1100])
@@ -54,14 +57,11 @@ pix_vec = np.linspace(0,2999,3000)
 pix_vec = np.array(pix_vec,dtype=np.int64)
 
 ### Chosen temperature 
-T = 1500
+T_list = np.array([1500.,2000.,3000.])
 
 ### Chosen emissivity function
 chosen_eps = art_eps
-model_list = []
-for it in range(2):
-    model_list.append(chosen_eps)
-
+model_list = [gr_eps,w_eps,art_eps]
 model_list = np.array(model_list)
 
 ### Emission lines
@@ -73,7 +73,7 @@ f,ax = plt.subplots(len(model_list),2)
 
 ### Iterate over multiple models
 it = 0
-for f_eps in model_list:
+for T,f_eps in zip(T_list,model_list):
     print("Model: ", it)
 
     ### Generate some data
@@ -99,7 +99,7 @@ for f_eps in model_list:
 
     ### Reconstruct data
     bb_reconstructed = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
-    eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
+    eps_vec_reconstructed = np.exp(filtered_data)/bb_reconstructed
     # Since we get epsilon from the filtered data, "reconstructed_data" will be
     # exactly like "filtered_data"
     reconstructed_data = bb_reconstructed * eps_vec_reconstructed # exactly filtered   
@@ -120,7 +120,6 @@ for f_eps in model_list:
     reconstructed_alt *= eps_vec
 
 
-
     ### Plots
     if it == 0:
         ax[it][0].set_title("Intensity")
@@ -129,7 +128,6 @@ for f_eps in model_list:
     # Intensity
     ax[it][0].semilogy(wl_vec,noisy_data)
     ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
-    ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
 
     T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
     error = np.abs((Tave-T)/T)*100
@@ -140,6 +138,5 @@ for f_eps in model_list:
     # Emissivity
     ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
     ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
-    ax[it][1].plot(wl_sub_vec,eps_vec,'-.')
 
     it += 1

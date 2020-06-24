@@ -16,14 +16,11 @@
 # Contact info: https:/github.com/pytaunay
 # 
 # Source: https:/github.com/pytaunay/ILX526A
-
-
 import numpy as np
 
 import generate_spectrum as gs
 
 from scipy.interpolate import splrep
-
 
 from pixel_operations import choose_pixels, generate_combinations
 from temperature_functions import optimum_temperature

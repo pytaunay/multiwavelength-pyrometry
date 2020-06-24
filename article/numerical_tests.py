@@ -1,30 +1,44 @@
-# Copyright (C) 2019 Pierre-Yves Taunay
+# MIT License
 # 
-# This program is free software: you can redistribute it andor modify
-# it under the terms of the GNU Affero General Public License as published
-# by the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Copyright (c) 2020 Pierre-Yves Camille Regis Taunay
+#  
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 # 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
 # 
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https:/www.gnu.org/licenses/>.
-# 
-# Contact info: https:/github.com/pytaunay
-# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+'''
+File: numerical_tests.py
+
+Description: select a test-emissivity and temperature and run the algorithm on 
+the artificially generated radiance to find the original emissivity and 
+temperature.
+
+It will generate plots that are similar to Fig. 9 in our original paper.
+'''
 
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
 import matplotlib.pyplot as plt
-import generate_spectrum as gs
+import algorithm.generate_spectrum as gs
 
-from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import optimum_temperature
-from kfold import order_selection
+from algorithm.pixel_operations import choose_pixels, generate_combinations
+from algorithm.temperature_functions import optimum_temperature
+from algorithm.kfold import order_selection
 
 def select_true_emissivity(chosen_case):
     '''

@@ -22,7 +22,7 @@ import numpy as np
 from scipy.interpolate import splrep
 from scipy.signal import medfilt, find_peaks_cwt
 
-import spectropyrometer_constants as sc
+import algorithm.spectropyrometer_constants as sc
 
 def moving_average(a, n=3) :
     ret = np.cumsum(a, dtype=float)
@@ -75,6 +75,7 @@ def generate_data(wl_vec,T,pix_vec,f_eps,el = None):
     log_noisy = np.log(noisy_data)
     
     # Find the peaks in the data from emission lines
+    # This is currently disabled, but it can be un-commented
 #    peaks = find_peaks_cwt(log_noisy,np.array([sc.window_length/2]))
 #    
 #    # Remove the peaks
@@ -134,17 +135,7 @@ def generate_emission_line(wl_line, wl_vec, I_calc, fac = 10):
     # Number of pixels
     length = len(wl_vec)
     
-    # Conditional
-#    cond = np.zeros(length,dtype=np.bool)
-#    for wl in wl_line:
-#        cond |= np.abs(wl_vec-wl) < 0.15
-    
-#    I_base = np.zeros(length)
-#    I_base = np.copy(I_calc)
-    
     v_out = np.zeros(length)
-    
-#    v_out = fac * I_base * cond
     
     broadening = np.zeros(length)
     sig = 2 # 10 nm standard deviation
@@ -160,10 +151,4 @@ def generate_emission_line(wl_line, wl_vec, I_calc, fac = 10):
     v_out += broadening
     
     return v_out
-    
-    
-    
 
-    
-    
-    

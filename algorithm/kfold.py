@@ -22,12 +22,12 @@ from scipy.optimize import minimize
 from sklearn.model_selection import KFold
 
 import warnings
-import spectropyrometer_constants as sc
-import temperature_functions as tf
+import algorithm.spectropyrometer_constants as sc
+import algorithm.temperature_functions as tf
 
-from pixel_operations import choose_pixels, generate_combinations
+from algorithm.pixel_operations import choose_pixels, generate_combinations
 
-from goal_function import goal_function
+from algorithm.goal_function import goal_function
 
 def training(data_spl, pix_sub_vec, train_idx, wl_vec):
     '''

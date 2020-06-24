@@ -19,18 +19,15 @@
 
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
-import spectropyrometer_constants as sc
+import algorithm.spectropyrometer_constants as sc
 
 from scipy.interpolate import splev
 
 from scipy.optimize import minimize
 
-from scipy.stats import normaltest
+from algorithm.goal_function import goal_function
 
-
-from goal_function import goal_function
-
-from statistics import tukey_fence
+from algorithm.statistics import tukey_fence
 
 def calculate_logR(data_spl, wl_v0, wl_v1):
     logR_array = []

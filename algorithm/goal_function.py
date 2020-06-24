@@ -18,10 +18,10 @@
 # Source: https:/github.com/pytaunay/ILX526A
 
 import numpy as np
-import spectropyrometer_constants as sc
+import algorithm.spectropyrometer_constants as sc
 
 from numpy.polynomial import Polynomial, polynomial
-from statistics import tukey_fence
+from algorithm.statistics import tukey_fence
 
 def goal_function(poly_coeff, logR, wl_v0, wl_v1, wl_min, wl_max): 
     '''

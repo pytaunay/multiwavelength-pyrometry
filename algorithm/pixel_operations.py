@@ -19,7 +19,7 @@
 import numpy as np
 import itertools
 
-from spectropyrometer_constants import pix_slice
+from algorithm.spectropyrometer_constants import pix_slice
 
 def choose_pixels(pix_vec,bin_method='average'):
     ''' 

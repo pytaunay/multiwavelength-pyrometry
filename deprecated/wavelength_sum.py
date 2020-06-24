@@ -78,7 +78,7 @@ gs = gridspec.GridSpec(1, 2,width_ratios=[15,1])
 ax1 = plt.subplot(gs[0])
 
 levels = np.logspace(-3,1,30)
-#cs = ax1.contour(Rv, Nv, allvec,levels=levels,cmap=cm.gray,norm = LogNorm())
+cs = ax1.contour(Rv, Nv, allvec,levels=levels,cmap=cm.gray,norm = LogNorm())
 
 ax1.set_yscale('log')
 ax1.set_xscale('log')
@@ -107,66 +107,66 @@ levels = np.concatenate((levels[:-1],np.linspace(1,10,5)))
 
 #ax1.plot(minall,Nvecint,'k.')
 ax1.set_ylim([2,100])
-ax1.set_xlim([0.1,10])
-
-XC = [np.zeros(len(levels)), np.ones(len(levels))]
-YC = [levels, levels]
-CM = ax2.contourf(XC,YC,YC, levels=levels, norm = LogNorm(),cmap=cm.gray)
-
-# log y-scale
-ax2.set_yscale('log')  
-# y-labels on the right
-ax2.yaxis.tick_right()
-# no x-ticks
-ax2.set_xticks([])
-
-
-### PLOT THE MEAN TERM
-gs = gridspec.GridSpec(1, 2,width_ratios=[15,1])
-ax1 = plt.subplot(gs[0])
-
-levels = np.logspace(-3,1,30)
-#cs = ax1.contour(Rv, Nv, meanvec,levels=levels,cmap=cm.gray,norm = LogNorm())
-cs = ax1.contourf(Rv,Nv,meanvec, levels=np.logspace(-3,3,30))
-
-ax1.set_yscale('log')
-ax1.set_xscale('log')
-
-### Find the best R for each N
-minall = []
-Nvecint = np.logspace(np.log10(2),3,1000,dtype=np.int64)
-Nvecint = np.unique(Nvecint)
-Nvecint = np.array(Nvecint,dtype=np.float64)
-minoptions = {'ftol':1e-15,'xtol':1e-15}
-#for N in Nvecint:
-#    sol = minimize(lambda R:totalsum(N,R),
-#                   1.45987,
-#                   method='Nelder-Mead',
-#                   options = minoptions
-#                   )
-##    print(N,sol.x)
-#    minall.append(sol.x)
-
-ax2 = plt.subplot(gs[1])
-levels = np.linspace(0.001,0.01,5)
-levels = np.concatenate((levels[:-1],np.linspace(0.01,0.1,5)))
-levels = np.concatenate((levels[:-1],np.linspace(0.1,1,5)))
-levels = np.concatenate((levels[:-1],np.linspace(1,10,5)))
-
-#ax1.plot(minall,Nvecint,'k.')
-ax1.set_ylim([2,100])
-ax1.set_xlim([0.1,10])
-
-XC = [np.zeros(len(levels)), np.ones(len(levels))]
-YC = [levels, levels]
-CM = ax2.contourf(XC,YC,YC, levels=levels, norm = LogNorm(),cmap=cm.gray)
-
-# log y-scale
-ax2.set_yscale('log')  
-# y-labels on the right
-ax2.yaxis.tick_right()
-# no x-ticks
-ax2.set_xticks([])
+#ax1.set_xlim([0.1,10])
+#
+#XC = [np.zeros(len(levels)), np.ones(len(levels))]
+#YC = [levels, levels]
+#CM = ax2.contourf(XC,YC,YC, levels=levels, norm = LogNorm(),cmap=cm.gray)
+#
+## log y-scale
+#ax2.set_yscale('log')  
+## y-labels on the right
+#ax2.yaxis.tick_right()
+## no x-ticks
+#ax2.set_xticks([])
+#
+#
+#### PLOT THE MEAN TERM
+#gs = gridspec.GridSpec(1, 2,width_ratios=[15,1])
+#ax1 = plt.subplot(gs[0])
+#
+#levels = np.logspace(-3,1,30)
+##cs = ax1.contour(Rv, Nv, meanvec,levels=levels,cmap=cm.gray,norm = LogNorm())
+#cs = ax1.contourf(Rv,Nv,meanvec, levels=np.logspace(-3,3,30))
+#
+#ax1.set_yscale('log')
+#ax1.set_xscale('log')
+#
+#### Find the best R for each N
+#minall = []
+#Nvecint = np.logspace(np.log10(2),3,1000,dtype=np.int64)
+#Nvecint = np.unique(Nvecint)
+#Nvecint = np.array(Nvecint,dtype=np.float64)
+#minoptions = {'ftol':1e-15,'xtol':1e-15}
+##for N in Nvecint:
+##    sol = minimize(lambda R:totalsum(N,R),
+##                   1.45987,
+##                   method='Nelder-Mead',
+##                   options = minoptions
+##                   )
+###    print(N,sol.x)
+##    minall.append(sol.x)
+#
+#ax2 = plt.subplot(gs[1])
+#levels = np.linspace(0.001,0.01,5)
+#levels = np.concatenate((levels[:-1],np.linspace(0.01,0.1,5)))
+#levels = np.concatenate((levels[:-1],np.linspace(0.1,1,5)))
+#levels = np.concatenate((levels[:-1],np.linspace(1,10,5)))
+#
+##ax1.plot(minall,Nvecint,'k.')
+#ax1.set_ylim([2,100])
+#ax1.set_xlim([0.1,10])
+#
+#XC = [np.zeros(len(levels)), np.ones(len(levels))]
+#YC = [levels, levels]
+#CM = ax2.contourf(XC,YC,YC, levels=levels, norm = LogNorm(),cmap=cm.gray)
+#
+## log y-scale
+#ax2.set_yscale('log')  
+## y-labels on the right
+#ax2.yaxis.tick_right()
+## no x-ticks
+#ax2.set_xticks([])
 
 
 

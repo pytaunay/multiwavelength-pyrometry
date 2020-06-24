@@ -21,7 +21,6 @@
 # SOFTWARE.
 
 import numpy as np
-from numpy.polynomial import Polynomial, polynomial
 
 import matplotlib.pyplot as plt
 import algorithm.generate_spectrum as gs

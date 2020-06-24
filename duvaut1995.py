@@ -20,6 +20,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+'''
+File: duvaut1995.py
+Description: Apply the algorithm on artificially generated radiance (with 
+experimentally measured emissivity). The goal is to find emissivity and 
+temperature of a tantalum surface which is held at 573 K.
+
+The experimental emissivity is given in the following reference:
+[1] T. Duvaut, D. Georgeault, and J. L. Beaudoin, "Multiwavelength infrared 
+pyrometry: optimization and computer simulations," Infrared Physics and 
+Technology, 36, 7, pp. 1089-1103, 1995.
+'''
+
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 

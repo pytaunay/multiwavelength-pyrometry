@@ -20,6 +20,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+'''
+File: wen2011.py
+Description: Apply the algorithm on experimental radiance (with 
+experimentally measured emissivity). The goal is to find emissivity and 
+temperature of the surface of an aluminum alloy (AL5083) which is held at 600 K.
+
+The experimental data can be found in the following reference:
+C. Da Wen and T. Y. Chai, "Examination of multispectral radiation thermometry 
+using linear and log-linear emissivity models for aluminum alloys," Heat Mass 
+Transfer, 47, 7, pp. 847-856, 2011.
+
+Note: the value of "pix_slice" in algorithm/spectropyrometer_constants MUST
+be adjusted. A lower value (e.g. 7) is here better because of the lower number 
+of wavelengths that are available as compared to measurements with 3,000 pixels.
+'''
+
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 

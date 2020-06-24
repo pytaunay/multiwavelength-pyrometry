@@ -24,11 +24,11 @@ import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
 import matplotlib.pyplot as plt
-import generate_spectrum as gs
+import algorithm.generate_spectrum as gs
 
-from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import optimum_temperature
-from kfold import order_selection
+from algorithm.pixel_operations import choose_pixels, generate_combinations
+from algorithm.temperature_functions import optimum_temperature
+from algorithm.kfold import order_selection
 
 from scipy.interpolate import splrep, splev
 

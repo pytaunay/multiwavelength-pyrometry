@@ -16,8 +16,6 @@
 # Contact info: https:/github.com/pytaunay
 # 
 # Source: https:/github.com/pytaunay/ILX526A
-
-
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
@@ -30,8 +28,6 @@ from kfold import order_selection
 
 from scipy.interpolate import splrep, splev
 
-
-
 ### Emissivity functions
 # Black and gray body
 bb_eps = lambda wl,T: 1.0 * np.ones(len(wl))
@@ -42,6 +38,7 @@ data = np.genfromtxt('data/duvaut-1995/tantalum-emissivity.csv', delimiter=',',s
 eps_xp = data[:,1]
 wl_eps_xp = data[:,0] * 1000 # Wavelengths are in micro-meter
 T = 573
+Ttrue = T
 
 # Spline the data to generate the "true" emissivity
 eps_spl = splrep(wl_eps_xp,eps_xp)
@@ -57,8 +54,8 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
         wl_vec,T,pix_vec,f_eps)
 wl_sub_vec = wl_vec[pix_sub_vec]
-#
-#
+
+
 ### Choose the order of the emissivity w/ k-fold
 poly_order = order_selection(data_spl,
                        pix_sub_vec,wl_vec,
@@ -76,7 +73,6 @@ Tave, Tstd, Tmetric, sol = optimum_temperature(data_spl,cmb_pix,
 
 ### Reconstruct data
 bb_reconstructed = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
-#eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
 eps_vec_reconstructed = np.exp(filtered_data)/bb_reconstructed
 # Since we get epsilon from the filtered data, "reconstructed_data" will be
 # exactly like "filtered_data"
@@ -107,24 +103,12 @@ fig, ax = plt.subplots(2,1)
 ax[0].semilogy(wl_vec_radiance,radiance)
 ax[0].semilogy(wl_vec,noisy_data)
 ax[0].semilogy(wl_sub_vec,reconstructed_data)
-#ax[0].semilogy(wl_sub_vec,reconstructed_alt)
+ax[0].set_title("Radiance")
 
 ax[1].plot(wl_eps_xp,eps_xp)
 ax[1].plot(wl_sub_vec,eps_vec_reconstructed)
+ax[1].set_title("Emissivity")
 
-#if it == 0:
-#    ax[it][0].set_title("Intensity")
-#    ax[it][1].set_title("Emissivity")
-#
-## Intensity
-#ax[it][0].semilogy(wl_vec,noisy_data)
-#ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
-#ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
-#
-Ttrue = 573
-T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
 error = np.abs((Tave-Ttrue)/Ttrue)*100
 print(Ttrue,error)
 
-#T_string += "\n" + str(round(error,2)) + " %"
-#ax[0].text(3000,np.average(I_calc)/100,T_string)

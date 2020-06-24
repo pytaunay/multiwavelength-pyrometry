@@ -16,8 +16,6 @@
 # Contact info: https:/github.com/pytaunay
 # 
 # Source: https:/github.com/pytaunay/ILX526A
-
-
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
@@ -36,12 +34,11 @@ gr_eps = lambda wl,T: 0.1 * np.ones(len(wl))
 
 
 ### Generate some data
-data = np.genfromtxt('data/wen-2011-intensity.csv', delimiter=',',skip_header=1)
+data = np.genfromtxt('data/wen-2011/AL5083-radiance.csv', delimiter=',',skip_header=1)
 T = 600 # K
 
 noisy_data = data[:,1] / (1e3 * 1e4)
 wl_vec = data[:,0] * 1000 # Wavelengths are in micro-meter
-#wl_vec = np.array(wl_vec,dtype=np.int64)
 pix_vec = np.linspace(0,len(wl_vec)-1,len(wl_vec))
 pix_vec = np.array(pix_vec,dtype=np.int64)
 
@@ -58,7 +55,6 @@ def moving_average(a, n=3) :
     return ret[n - 1:] / n
 
 # Moving average filter
-#wl = sc.window_length
 wl = 11
 log_med = moving_average(nopeak,wl)
 
@@ -79,12 +75,8 @@ data_spl = splrep(wl_vec_sub,log_med)
 pix_sub_vec = np.copy(pix_vec_sub)
 filtered_data = np.copy(log_med)
 
-#
-#I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
-#        wl_vec,T,pix_vec,f_eps,el)
 wl_sub_vec = wl_vec[pix_sub_vec]
-#
-#
+
 ### Choose the order of the emissivity w/ k-fold
 poly_order = order_selection(data_spl,
                        pix_sub_vec,wl_vec,
@@ -102,7 +94,6 @@ Tave, Tstd, Tmetric, sol = optimum_temperature(data_spl,cmb_pix,
 
 ### Reconstruct data
 bb_reconstructed = gs.wien_approximation(wl_sub_vec,Tave,bb_eps)
-#eps_vec_reconstructed = 10**filtered_data/bb_reconstructed
 eps_vec_reconstructed = np.exp(filtered_data)/bb_reconstructed
 # Since we get epsilon from the filtered data, "reconstructed_data" will be
 # exactly like "filtered_data"
@@ -116,47 +107,26 @@ wl_max = np.max(wl_sub_vec)
 if poly_order > 0:
     cheb = Polynomial(sol.x,[wl_min,wl_max])
     eps_vec = polynomial.polyval(wl_sub_vec,cheb.coef)
-    
 else:
     eps_ave = np.average(eps_vec_reconstructed)
     eps_vec = eps_ave * np.ones(len(wl_sub_vec))
     
 reconstructed_alt *= eps_vec
 
-
 #### Plots
 fig, ax = plt.subplots(2,1)
 ax[0].semilogy(wl_vec,noisy_data)
 ax[0].semilogy(wl_sub_vec,reconstructed_data)
-#ax[0].semilogy(wl_sub_vec,reconstructed_alt)
+ax[0].set_title("Radiance")
 
-data = np.genfromtxt('data/wen-2011-emissivity.csv', delimiter=',',skip_header=1)
+data = np.genfromtxt('data/wen-2011/AL5083-emissivity.csv', delimiter=',',skip_header=1)
 eps_xp = data[:,1]
 wl_eps_xp = data[:,0] * 1000 # Wavelengths are in micro-meter
 
 ax[1].plot(wl_eps_xp,eps_xp)
 ax[1].plot(wl_sub_vec,eps_vec_reconstructed)
+ax[1].set_title("Emissivity")
 
-#if it == 0:
-#    ax[it][0].set_title("Intensity")
-#    ax[it][1].set_title("Emissivity")
-#
-## Intensity
-#ax[it][0].semilogy(wl_vec,noisy_data)
-#ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
-#ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
-#
-#T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
 error = np.abs((Tave-T)/T)*100
 
 print(Tave,error)
-
-#T_string += "\n" + str(round(error,2)) + " %"
-#ax[it][0].text(850,np.average(I_calc)/100,T_string)
-#
-## Emissivity
-#ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
-#ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
-#ax[it][1].plot(wl_sub_vec,eps_vec,'-.')
-#
-#it += 1

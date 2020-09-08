@@ -20,6 +20,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+'''
+File: araujo2020.py
+Description: Apply the algorithm on artificially generated radiance and 
+emissivity. The goal is to recover the emissivity and temperature of the
+material surface which is held at 1000 K.
+
+The emissivity is given in the following reference:
+A. Araújo, and R. Silva, "Surface temperature estimation in determined 
+multi-wavelength pyrometry systems," Review of Scientific Instruments, 
+91, 5, 054901. https://doi.org/10.1063/5.0005676
+
+Note: this emissivity tests the limits of the algorithm. The emissivity may
+not be recovered correctly (values >1) and temperature error may go up to 8%.
+To mitigate that, the value of window_length should be changed to a lower 
+value (11 seems ok). Other parameters can be changed as well, such as the 
+number of k-folds (lower down to 5).  
+'''
 import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
@@ -76,7 +93,6 @@ if noise:
     I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
             wl_vec,T,pix_vec,eps2)
     
-#    print("Already calculated")
 else:
     I_calc = gs.wien_approximation(wl_vec,T,eps2)
     noisy_data = np.copy(I_calc)
@@ -144,36 +160,11 @@ reconstructed_alt *= eps_vec
 fig, ax = plt.subplots(2,1)
 ax[0].semilogy(wl_vec,noisy_data)
 ax[0].semilogy(wl_sub_vec,reconstructed_data)
-#ax[0].semilogy(wl_sub_vec,reconstructed_alt)
-
-#data = np.genfromtxt('data/wen-2011-emissivity.csv', delimiter=',',skip_header=1)
-#eps_xp = data[:,1]
-#wl_eps_xp = data[:,0] * 1000 # Wavelengths are in micro-meter
 
 ax[1].plot(wl_vec,eps2(wl_vec,T))
-#ax[1].plot(wl_vec,eps1(wl_vec,T))
 ax[1].plot(wl_sub_vec,eps_vec_reconstructed)
 
-#if it == 0:
-#    ax[it][0].set_title("Intensity")
-#    ax[it][1].set_title("Emissivity")
-#
-## Intensity
-#ax[it][0].semilogy(wl_vec,noisy_data)
-#ax[it][0].semilogy(wl_sub_vec,reconstructed_data)
-#ax[it][0].semilogy(wl_sub_vec,reconstructed_alt)
-#
-#T_string = str(round(Tave,1)) + "+/-" + str(round(Tstd,2)) + " K"
 error = np.abs((Tave-T)/T)*100
 
 print(Tave,error,poly_order)
 
-#T_string += "\n" + str(round(error,2)) + " %"
-#ax[it][0].text(850,np.average(I_calc)/100,T_string)
-#
-## Emissivity
-#ax[it][1].plot(wl_vec,f_eps(wl_vec,Tave),'--')
-#ax[it][1].plot(wl_sub_vec,eps_vec_reconstructed) 
-#ax[it][1].plot(wl_sub_vec,eps_vec,'-.')
-#
-#it += 1

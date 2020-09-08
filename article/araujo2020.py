@@ -24,11 +24,11 @@ import numpy as np
 from numpy.polynomial import Polynomial, polynomial
 
 import matplotlib.pyplot as plt
-import generate_spectrum as gs
+import algorithm.generate_spectrum as gs
 
-from pixel_operations import choose_pixels, generate_combinations
-from temperature_functions import optimum_temperature
-from kfold import order_selection
+from algorithm.pixel_operations import choose_pixels, generate_combinations
+from algorithm.temperature_functions import optimum_temperature
+from algorithm.kfold import order_selection
 
 from scipy.interpolate import splrep
 
@@ -56,11 +56,11 @@ gr_eps = lambda wl,T: 0.5 * np.ones(len(wl))
 T = 1000 # K
 
 # First create the emissivity
-lambda_min = 1 * 1e3
-lambda_max = 10 * 1e3
+lambda_min = 0.4 * 1e3
+lambda_max = 0.8 * 1e3
 
 # Parameters
-Nwl = 50 # 20 wavelengths
+Nwl = 3000 # 3000 wavelengths
 wl_vec = np.linspace(lambda_min,lambda_max,Nwl)
 
 pix_vec = np.linspace(0,len(wl_vec)-1,len(wl_vec))
@@ -70,20 +70,30 @@ pix_vec = np.array(pix_vec,dtype=np.int64)
 eps1 = lambda wl,T: araujo_emissivity(0.3,0.9,1,4,lambda_min,lambda_max,wl)
 eps2 = lambda wl,T: araujo_emissivity(0.9,0.3,0.7,20,lambda_min,lambda_max,wl)
 
-noisy_data = gs.wien_approximation(wl_vec,T,eps2)
+noise = True
 
-# Take the log of the data
-log_noisy = np.log(noisy_data)
-
-wl_vec_sub = np.copy(wl_vec)
-log_med = np.copy(log_noisy)
-pix_vec_sub = np.copy(pix_vec)
-
-### Fit a spline to access data easily
-data_spl = splrep(wl_vec_sub,log_med)
-
-pix_sub_vec = np.copy(pix_vec_sub)
-filtered_data = np.copy(log_med)
+if noise:
+    I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(
+            wl_vec,T,pix_vec,eps2)
+    
+#    print("Already calculated")
+else:
+    I_calc = gs.wien_approximation(wl_vec,T,eps2)
+    noisy_data = np.copy(I_calc)
+    
+    # Take the log of the data
+    
+    log_noisy = np.log(noisy_data)
+    
+    wl_vec_sub = np.copy(wl_vec)
+    log_med = np.copy(log_noisy)
+    pix_vec_sub = np.copy(pix_vec)
+    
+    ### Fit a spline to access data easily
+    data_spl = splrep(wl_vec_sub,log_med)
+    
+    pix_sub_vec = np.copy(pix_vec_sub)
+    filtered_data = np.copy(log_med)
 
 
 #I_calc,noisy_data,filtered_data,data_spl,pix_sub_vec = gs.generate_data(

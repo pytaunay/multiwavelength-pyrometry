@@ -1,3 +1,6 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4021039.svg)](https://doi.org/10.5281/zenodo.4021039)
+
+
 ### Description
 Set of files to compute the temperature and emissivity of a material based on 
 the measured radiance at a large number of wavelengths.

@@ -9,7 +9,7 @@ The ./article folder contains the files necessary to reproduce the figures and
 ### How to use
 To run the scripts that are located in the ./article folder, either: 
 * generate a symbolic link to the ./algorithm folder, or 
-* copy the script into the root folder (where the README is located). 
+* copy the script into the root folder (where this README is located). 
 
 To run the examples from Duvaut 1995 and Wen 2011, also generate a symlink to 
 the ./data folder. If executing from the command line, add 

@@ -34,6 +34,18 @@ Please use the associated publication:
 
 P.-Y. C. R. Taunay, E. Y. Choueiri, "Multi-wavelength Pyrometry Based on 
 Robust Statistics and Cross-Validation of Emissivity Model," Review of
-Scientific Instruments, 2020 (submitted).
+Scientific Instruments, 91, 114902, 2020.
 
-Pierre-Yves Taunay, 2020
+```
+@article{Taunay2020,
+	author = {Taunay, Pierre-Yves C. and Choueiri, Edgar Y.},
+	doi= {10.1063/5.0019847},
+	journal= {Review of Scientific Instruments},
+	pages= {114902},
+	title= {Multi-wavelength pyrometry based on robust statistics and cross-validation of emissivity model},
+	volume= {91},
+	year= {2020}
+}
+```
+
+Pierre-Yves Taunay, 2021
